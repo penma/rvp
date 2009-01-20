@@ -1,0 +1,121 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use Data::Dumper;
+
+# DATA
+my %lines;
+
+$lines{"107"} =
+	{ stops => [
+		{ city => "Essen", name => "Hauptbahnhof" },
+		{ city => "Essen", name => "Philharmonie/Saalbau" },
+		{ city => "Essen", name => "Rüttenscheider Stern" },
+		{ city => "Essen", name => "Martinstraße" },
+		{ city => "Essen", name => "Florastraße" },
+		{ city => "Essen", name => "Alfredusbad" },
+	] };
+$lines{"903"} =
+	{ stops => [
+		{ city => "Duisburg", name => "Vierlinden" },
+		{ city => "Duisburg", name => "Fasanenstraße" },
+		{ city => "Duisburg", name => "Walsum Betriebshof" },
+		{ city => "Duisburg", name => "Walsum Rathaus" },
+		{ city => "Duisburg", name => "Sonnenstraße" },
+		{ city => "Duisburg", name => "Schwan" },
+		{ city => "Duisburg", name => "Striepweg" },
+		{ city => "Duisburg", name => "Heckmann" },
+		{ city => "Duisburg", name => "Wolfstraße" },
+		{ city => "Duisburg", name => "Marxloh Pollmann" },
+		{ city => "Duisburg", name => "Rhein-Ruhr-Halle" },
+		{ city => "Duisburg", name => "Hamborn Rathaus" },
+		{ city => "Duisburg", name => "Hamborn Feuerwache" },
+		{ city => "Duisburg", name => "Amsterdamer Straße" },
+		{ city => "Duisburg", name => "Theodor-Heuss-Straße" },
+		{ city => "Duisburg", name => "Landschaftspark Nord" },
+		{ city => "Duisburg", name => "Voßstraße" },
+		{ city => "Duisburg", name => "Emilstraße" },
+		{ city => "Duisburg", name => "Meiderich Bahnhof" },
+		{ city => "Duisburg", name => "Auf dem Damm" },
+		{ city => "Duisburg", name => "Duissern" },
+		{ city => "Duisburg", name => "Hauptbahnhof" },
+		{ city => "Duisburg", name => "König-Heinrich-Platz" },
+		{ city => "Duisburg", name => "Steinsche Gasse" },
+		{ city => "Duisburg", name => "Platanenhof" },
+		{ city => "Duisburg", name => "Brückenplatz" },
+	] };
+$lines{"RE1"} =
+	{ stops => [
+		{ city => "Duisburg", name => "Hauptbahnhof" },
+		{ city => "Mülheim", name => "Hauptbahnhof" },
+		{ city => "Essen", name => "Hauptbahnhof" },
+	] };
+$lines{"RE2"} =
+	{ stops => [
+		{ city => "Duisburg", name => "Hauptbahnhof" },
+		{ city => "Mülheim", name => "Hauptbahnhof" },
+		{ city => "Essen", name => "Hauptbahnhof" },
+	] };
+$lines{"RE6"} =
+	{ stops => [
+		{ city => "Duisburg", name => "Hauptbahnhof" },
+		{ city => "Mülheim", name => "Hauptbahnhof" },
+		{ city => "Essen", name => "Hauptbahnhof" },
+	] };
+$lines{"S1"} =
+	{ stops => [
+		{ city => "Duisburg", name => "Hauptbahnhof" },
+		{ city => "Mülheim", name => "Styrum" },
+		{ city => "Mülheim", name => "Hauptbahnhof" },
+		{ city => "Essen", name => "Frohnhausen" },
+		{ city => "Essen", name => "West" },
+		{ city => "Essen", name => "Hauptbahnhof" },
+	] };
+
+# END DATA
+
+# find lines that stop at a station given by name and city.
+sub find_lines_by_stop
+{
+	my ($city, $name) = @_;
+	my @ret;
+	
+	print STDERR "{find_lines_by_stop $city $name}\n";
+	foreach my $line (keys(%lines))
+	{
+		if (grep { $_->{city} eq $city and $_->{name} eq $name } @{$lines{$line}->{stops}})
+		{
+			print STDERR "{find_lines_by_stop $city $name R $line}\n";
+			push(@ret, $line);
+		}
+	}
+	
+	return @ret;
+}
+
+sub find_way
+{
+	my ($city_from, $name_from, $city_to, $name_to) = @_;
+	my @use_lines;
+	my @use_stops;
+	
+	# XXX find lines that have a stop there
+	push(@use_lines, find_lines_by_stop($city_from, $name_from));
+	push(@use_lines, find_lines_by_stop($city_to,   $name_to));
+	
+	# XX when we can draw a connection from endpoint to endpoint, do it
+	# XX else (or further) extend all active lines' endpoints
+	
+	# find all stops of the lines of the endpoints
+	foreach my $line (@use_lines)
+	{
+		print "follow $line\n";
+		push(@use_stops, $_) foreach (@{$lines{$line}->{stops}})
+	}
+	
+	return @use_stops;
+	
+	return undef;
+}
+
+print Dumper(find_way(@ARGV));
