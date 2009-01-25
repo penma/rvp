@@ -1,7 +1,11 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
+use 5.010;
 use Data::Dumper;
+
+use utf8;
+use encoding 'utf8';
 
 # DATA
 my %lines;
@@ -74,6 +78,41 @@ $lines{"S1"} =
 
 # END DATA
 
+sub print_connections
+{
+	foreach my $connection (@_)
+	{
+		my $skipped = 0;
+		foreach my $stop (@{$connection})
+		{
+			if ($stop->{name} ~~ @{[
+			"Fasanenstraße", "Walsum Betriebshof", "Walsum Rathaus", "Sonnenstraße", "Schwan", "Striepweg",
+			"Heckmann", "Wolfstraße", "Marxloh Pollmann", "Rhein-Ruhr-Halle", "Hamborn Rathaus", "Hamborn Feuerwache",
+			"Amsterdamer Straße", "Theodor-Heuss-Straße", "Landschaftspark Nord", "Voßstraße", "Emilstraße",
+			"Meiderich Bahnhof", "Auf dem Damm", "Duissern"]})
+			{
+				$skipped++;
+			}
+			else
+			{
+				if ($skipped)
+				{
+					print "($skipped skipped)\n";
+					$skipped = 0;
+				}
+				printf("%-20s %-40s %-10s\n",
+					$stop->{city},
+					$stop->{name},
+					$stop->{line}
+				);
+			}
+		}
+		print "($skipped skipped)\n" if ($skipped);
+		print "\n";
+	}
+	printf "(%d connections)\n", scalar(@_);
+}
+
 # find lines that stop at a station given by name and city.
 sub find_lines_by_stop
 {
@@ -93,29 +132,113 @@ sub find_lines_by_stop
 	return @ret;
 }
 
+# take one incomplete connection and find new incomplete connections that
+# approach the given target further
+sub find_way_next_stop
+{
+	my ($city_to, $name_to, $connection) = @_;
+	
+	## print "I'm instructed to complete this connection to $city_to / $name_to:\n";
+	## print Dumper($connection);
+	
+	# find lines that have been used so far
+	my @lines_used = map { $_->{line} } @{$connection};
+	
+	# last stop is...
+	my $stop_last = $connection->[scalar(@{$connection}) - 1];
+	
+	# find lines that *could* continue from this stop
+	my @lines_possible = find_lines_by_stop($stop_last->{city}, $stop_last->{name});
+	
+	# however, we exclude every line that has been used so far...
+	my @lines_allowed = grep { not $_ ~~ @lines_used } @lines_possible;
+	
+	# ... except the one we're currently using
+	push(@lines_allowed, $stop_last->{line});
+	
+	# now for every allowed line, find the current stop and append the next.
+	return map {
+		print "line> $_\n";
+		my @ret;
+		for (my $c = 0; $c < scalar(@{$lines{$_}->{stops}}); $c++)
+		{
+			my $stop = $lines{$_}->{stops}->[$c];
+			if ($stop->{city} eq $stop_last->{city}
+			and $stop->{name} eq $stop_last->{name})
+			{
+				my $stop_next = $lines{$_}->{stops}->[$c + 1];
+				if ($stop_next)
+				{
+					push(@ret, [ @{$connection},
+					{
+						city => $stop_next->{city},
+						name => $stop_next->{name},
+						line => $_
+					} ]);
+				}
+			}
+		}
+		@ret;
+	} @lines_allowed;
+}
+
 sub find_way
 {
 	my ($city_from, $name_from, $city_to, $name_to) = @_;
-	my @use_lines;
-	my @use_stops;
+	my @connections_finished; # complete connections
+	my @connections_search;   # incomplete connections
 	
-	# XXX find lines that have a stop there
-	push(@use_lines, find_lines_by_stop($city_from, $name_from));
-	push(@use_lines, find_lines_by_stop($city_to,   $name_to));
-	
-	# XX when we can draw a connection from endpoint to endpoint, do it
-	# XX else (or further) extend all active lines' endpoints
-	
-	# find all stops of the lines of the endpoints
-	foreach my $line (@use_lines)
+	# find lines that have a stop at the start point, to generate initial
+	# nodes
+	foreach my $line (find_lines_by_stop($city_from, $name_from))
 	{
-		print "follow $line\n";
-		push(@use_stops, $_) foreach (@{$lines{$line}->{stops}})
+		push(@connections_search, [{
+			city => $city_from,
+			name => $name_from,
+			
+			line => $line
+		}]);
 	}
 	
-	return @use_stops;
+	while (scalar(@connections_search))
+	{
+		# now find next stops
+		my @cs_tmp;
+		foreach my $connection (@connections_search)
+		{
+			push(@cs_tmp, find_way_next_stop($city_to, $name_to, $connection));
+		}
+		
+		# remove completed ones
+		push(@connections_finished, grep {
+			my $stop_last = $_->[scalar(@{$_}) - 1];
+				    $city_to eq $stop_last->{city}
+				and $name_to eq $stop_last->{name}
+		} @cs_tmp);
+		
+		# add them to the search list
+		@connections_search = grep {
+			my $stop_last = $_->[scalar(@{$_}) - 1];
+			not(
+				    $city_to eq $stop_last->{city}
+				and $name_to eq $stop_last->{name}
+			);
+		} @cs_tmp;
+		
+		# and remove complete ones
+		
+		
+		print "FINISHED CONNECTIONS:\n";
+		print_connections(@connections_finished);
+		print "CONNECTIONS IN PROGRESS:\n";
+		print_connections(@connections_search);
+		print "Iteration done. Press return to go on.\n"; # <STDIN>;
+	}
 	
-	return undef;
+	print "\n\n\nCONNECTIONS FOUND:\n";
+	print_connections(@connections_finished);
+	
+	return;
 }
 
 print Dumper(find_way(@ARGV));
