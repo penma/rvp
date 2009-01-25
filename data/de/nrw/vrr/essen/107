@@ -1,0 +1,12 @@
+$lines{"de/nrw/vrr:107:Essen:Bredeney"} =
+	{ stops => [
+		{ city => "Essen", name => "Hauptbahnhof" },
+		{ city => "Essen", name => "Philharmonie/Saalbau" },
+		{ city => "Essen", name => "Rüttenscheider Stern" },
+		{ city => "Essen", name => "Martinstraße" },
+		{ city => "Essen", name => "Florastraße" },
+		{ city => "Essen", name => "Alfredusbad" },
+		{ city => "Essen", name => "Kruppallee" },
+		{ city => "Essen", name => "Frankenstraße" },
+		{ city => "Essen", name => "Bredeney" }
+	] };

@@ -1,0 +1,33 @@
+#do("re1");
+#do("re2");
+#do("re6");
+#do("s1");
+
+$lines{"de/nrw/regio:RE1::"} =
+	{ stops => [
+		{ city => "Duisburg", name => "Hauptbahnhof" },
+		{ city => "Mülheim", name => "Hauptbahnhof" },
+		{ city => "Essen", name => "Hauptbahnhof" },
+	] };
+$lines{"de/nrw/regio:RE2::"} =
+	{ stops => [
+		{ city => "Duisburg", name => "Hauptbahnhof" },
+		{ city => "Mülheim", name => "Hauptbahnhof" },
+		{ city => "Essen", name => "Hauptbahnhof" },
+	] };
+$lines{"de/nrw/regio:RE6::"} =
+	{ stops => [
+		{ city => "Duisburg", name => "Hauptbahnhof" },
+		{ city => "Mülheim", name => "Hauptbahnhof" },
+		{ city => "Essen", name => "Hauptbahnhof" },
+	] };
+$lines{"de/nrw/regio:S1::"} =
+	{ stops => [
+		{ city => "Duisburg", name => "Hauptbahnhof" },
+		{ city => "Mülheim", name => "Styrum" },
+		{ city => "Mülheim", name => "Hauptbahnhof" },
+		{ city => "Essen", name => "Frohnhausen" },
+		{ city => "Essen", name => "West" },
+		{ city => "Essen", name => "Hauptbahnhof" },
+	] };
+

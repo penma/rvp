@@ -4,77 +4,13 @@ use warnings;
 use 5.010;
 use Data::Dumper;
 
-use utf8;
-use encoding 'utf8';
+#use utf8;
+#use encoding 'utf8';
+
 
 # DATA
-my %lines;
-
-$lines{"107"} =
-	{ stops => [
-		{ city => "Essen", name => "Hauptbahnhof" },
-		{ city => "Essen", name => "Philharmonie/Saalbau" },
-		{ city => "Essen", name => "Rüttenscheider Stern" },
-		{ city => "Essen", name => "Martinstraße" },
-		{ city => "Essen", name => "Florastraße" },
-		{ city => "Essen", name => "Alfredusbad" },
-	] };
-$lines{"903"} =
-	{ stops => [
-		{ city => "Duisburg", name => "Vierlinden" },
-		{ city => "Duisburg", name => "Fasanenstraße" },
-		{ city => "Duisburg", name => "Walsum Betriebshof" },
-		{ city => "Duisburg", name => "Walsum Rathaus" },
-		{ city => "Duisburg", name => "Sonnenstraße" },
-		{ city => "Duisburg", name => "Schwan" },
-		{ city => "Duisburg", name => "Striepweg" },
-		{ city => "Duisburg", name => "Heckmann" },
-		{ city => "Duisburg", name => "Wolfstraße" },
-		{ city => "Duisburg", name => "Marxloh Pollmann" },
-		{ city => "Duisburg", name => "Rhein-Ruhr-Halle" },
-		{ city => "Duisburg", name => "Hamborn Rathaus" },
-		{ city => "Duisburg", name => "Hamborn Feuerwache" },
-		{ city => "Duisburg", name => "Amsterdamer Straße" },
-		{ city => "Duisburg", name => "Theodor-Heuss-Straße" },
-		{ city => "Duisburg", name => "Landschaftspark Nord" },
-		{ city => "Duisburg", name => "Voßstraße" },
-		{ city => "Duisburg", name => "Emilstraße" },
-		{ city => "Duisburg", name => "Meiderich Bahnhof" },
-		{ city => "Duisburg", name => "Auf dem Damm" },
-		{ city => "Duisburg", name => "Duissern" },
-		{ city => "Duisburg", name => "Hauptbahnhof" },
-		{ city => "Duisburg", name => "König-Heinrich-Platz" },
-		{ city => "Duisburg", name => "Steinsche Gasse" },
-		{ city => "Duisburg", name => "Platanenhof" },
-		{ city => "Duisburg", name => "Brückenplatz" },
-	] };
-$lines{"RE1"} =
-	{ stops => [
-		{ city => "Duisburg", name => "Hauptbahnhof" },
-		{ city => "Mülheim", name => "Hauptbahnhof" },
-		{ city => "Essen", name => "Hauptbahnhof" },
-	] };
-$lines{"RE2"} =
-	{ stops => [
-		{ city => "Duisburg", name => "Hauptbahnhof" },
-		{ city => "Mülheim", name => "Hauptbahnhof" },
-		{ city => "Essen", name => "Hauptbahnhof" },
-	] };
-$lines{"RE6"} =
-	{ stops => [
-		{ city => "Duisburg", name => "Hauptbahnhof" },
-		{ city => "Mülheim", name => "Hauptbahnhof" },
-		{ city => "Essen", name => "Hauptbahnhof" },
-	] };
-$lines{"S1"} =
-	{ stops => [
-		{ city => "Duisburg", name => "Hauptbahnhof" },
-		{ city => "Mülheim", name => "Styrum" },
-		{ city => "Mülheim", name => "Hauptbahnhof" },
-		{ city => "Essen", name => "Frohnhausen" },
-		{ city => "Essen", name => "West" },
-		{ city => "Essen", name => "Hauptbahnhof" },
-	] };
+our %lines;
+do("data/master");
 
 # END DATA
 
