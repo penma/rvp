@@ -10,6 +10,18 @@ $| = 1;
 #use utf8;
 #use encoding 'utf8';
 
+use Time::HiRes qw(time);
+
+sub td_start {
+	$main::x____time = time();
+}
+
+sub td_end {
+	my $diff = time() - $main::x____time;
+	return sprintf("%.3f seconds", $diff);
+}
+
+
 # DATA
 our %lines;
 do("data/master");
@@ -18,6 +30,7 @@ do("data/master");
 
 # make the graph
 print STDERR "Building graph";
+td_start();
 my $g = new Graph;
 while (my ($line, $linedata) = each(%lines))
 {
@@ -30,9 +43,10 @@ while (my ($line, $linedata) = each(%lines))
 		);
 	}
 }
-print STDERR " - done (". scalar($g->vertices) . " vertices).\n";
+print STDERR " - done (". scalar($g->vertices) . " vertices, spent " . td_end() . ").\n";
+td_start();
 my @way = $g->SP_Dijkstra("$ARGV[0] $ARGV[1]", "$ARGV[2] $ARGV[3]");
-print STDERR "Found a way!\n";
+print STDERR "Found a way (took " . td_end() . ")!\n";
 
 print STDERR Dumper(@way);
 
