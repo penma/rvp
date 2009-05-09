@@ -3,6 +3,9 @@ use strict;
 use warnings;
 use 5.010;
 use Data::Dumper;
+use Graph;
+
+$| = 1;
 
 #use utf8;
 #use encoding 'utf8';
@@ -12,6 +15,29 @@ our %lines;
 do("data/master");
 
 # END DATA
+
+# make the graph
+print STDERR "Building graph";
+my $g = new Graph;
+while (my ($line, $linedata) = each(%lines))
+{
+	for (my $c = 0; $c < scalar(@{$linedata->{stops}}) - 2; $c += 2)
+	{
+		$g->add_weighted_edge(
+			$linedata->{stops}->[$c+0]->{city} . " " . $linedata->{stops}->[$c+0]->{name},
+			$linedata->{stops}->[$c+2]->{city} . " " . $linedata->{stops}->[$c+2]->{name},
+			$linedata->{stops}->[$c+1]
+		);
+	}
+}
+print STDERR " - done (". scalar($g->vertices) . " vertices).\n";
+my @way = $g->SP_Dijkstra("$ARGV[0] $ARGV[1]", "$ARGV[2] $ARGV[3]");
+print STDERR "Found a way!\n";
+
+print STDERR Dumper(@way);
+
+
+__END__
 
 sub print_connections
 {
