@@ -64,6 +64,7 @@ sub g_dijkstra {
 			)
 		} keys(%unvisited);
 		my $current = $uv[0];
+		return undef if ($vert->{$current}->{_dijkstra_d} == -1);
 
 		foreach my $edge (
 			grep { exists($unvisited{$_->{to}}) }
