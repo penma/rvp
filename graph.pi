@@ -59,7 +59,7 @@ sub g_dijkstra {
 		last if (!defined($current));
 
 		# update all neighbors
-		foreach my $edge (@{$vert->{$current}->{_edges}}) {
+		foreach my $edge (grep { $_->{from} eq $current } @{$vert->{$current}->{_edges}}) {
 			if (($dist{$edge->{to}} eq $infinity) ||
 			($dist{$edge->{to}} > ($dist{$current} + $edge->{weight}) )) {
 				$dist{$edge->{to}} = $dist{$current} + $edge->{weight};
