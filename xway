@@ -5,6 +5,9 @@ use warnings;
 use Data::Dumper;
 use Time::HiRes qw(time);
 
+use lib 'graph';
+use Fastgraph;
+
 sub td_start {
 	$main::x____time = time();
 }
@@ -13,8 +16,6 @@ sub td_end {
 	my $diff = time() - $main::x____time;
 	return sprintf("%.3f seconds", $diff);
 }
-
-do("graph.pi");
 
 # ---
 
@@ -26,10 +27,10 @@ do("data/master");
 print STDERR "Building graph";
 td_start();
 
-my $g = g_new();
+my $g = new Fastgraph;
 while (my ($line, $linedata) = each(%lines)) {
 	for (my $c = 0; $c < scalar(@{$linedata->{stops}}) - 2; $c += 2) {
-		g_edge($g,
+		$g->addedge(
 			$linedata->{stops}->[$c+0]->{city} . " " . $linedata->{stops}->[$c+0]->{name},
 			$linedata->{stops}->[$c+2]->{city} . " " . $linedata->{stops}->[$c+2]->{name},
 			$linedata->{stops}->[$c+1]
@@ -37,9 +38,9 @@ while (my ($line, $linedata) = each(%lines)) {
 	}
 }
 
-print STDERR " - done (". scalar(keys(%{$g->{vertices}})) . " vertices, spent " . td_end() . ").\n";
+print STDERR " - done (". $g->countvertices() . " vertices, spent " . td_end() . ").\n";
 td_start();
-my @way = g_dijkstra($g, $ARGV[0], $ARGV[1]);
+my @way = $g->dijkstra($ARGV[0], $ARGV[1]);
 print STDERR "Found a way (took " . td_end() . ")!\n";
 
 sub dumpway {
