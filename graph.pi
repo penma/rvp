@@ -13,6 +13,7 @@ sub g_vertex {
 	}
 	return $g->{vertices}->{$name};
 }
+
 sub g_edge {
 	my ($g, $from, $to, $weight) = @_;
 	my $v_from = g_vertex($g, $from);
@@ -35,15 +36,11 @@ sub g_dijkstra {
 	return undef if (!exists($g->{vertices}->{$to}));
 
 	my $vert = $g->{vertices};
-	my %dist;
-	my %prev;
-	my @unvisited = keys(%{$vert});
+	my %dist;                       # distance from start node
+	my @unvisited = keys(%{$vert}); # unvisited nodes
 	my $infinity = -1;
 
-	foreach (@unvisited) {
-		$dist{$_} = $infinity;
-		$prev{$_} = $_;
-	}
+	$dist{$_} = $infinity foreach (@unvisited);
 	$dist{$from} = 0;
 
 	while (@unvisited) {
@@ -60,18 +57,11 @@ sub g_dijkstra {
 			if (($dist{$edge->{to}} eq $infinity) ||
 			($dist{$edge->{to}} > ($dist{$current} + $edge->{weight}) )) {
 				$dist{$edge->{to}} = $dist{$current} + $edge->{weight};
-				# $prev{$edge->{to}} = $current;
 			}
 		}
 	}
 
 	# trace the path from the destination to the start
-	#my @path = ($to);
-	#my $current = $to;
-	#while ($current ne $from) {
-	#	$current = $prev{$current};
-	#	unshift(@path, $current);
-	#}
 	my @path = ();
 	my $current = $to;
 	while ($current ne $from) {
