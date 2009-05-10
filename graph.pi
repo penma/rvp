@@ -2,6 +2,8 @@
 use strict;
 use warnings;
 
+use Heap::Priority;
+
 sub g_new { return { vertices => {}, edges => [] }; }
 sub g_vertex {
 	my ($g, $name) = @_;
@@ -37,26 +39,32 @@ sub g_dijkstra {
 
 	my $vert = $g->{vertices};
 	my %dist;                       # distance from start node
-	my @unvisited = keys(%{$vert}); # unvisited nodes
+	# nodes that have never been touched (where dist == infinity,
+	# NOT nodes that just are not optimal yet.)
+	my @unvisited = grep { $_ ne $from } keys(%{$vert});
 	my $infinity = -1;
+	my $suboptimal = new Heap::Priority;
+	$suboptimal->lowest_first();
+	$suboptimal->add($from, 0);
 
 	$dist{$_} = $infinity foreach (@unvisited);
 	$dist{$from} = 0;
 
-	while (@unvisited) {
+	while (1) {
 		# find the smallest unvisited node
-		@unvisited = sort {
-			$dist{$a} eq $infinity ? +1 :
-			$dist{$b} eq $infinity ? -1 :
-			$dist{$a} <=> $dist{$b};
-		} @unvisited;
-		my $current = shift @unvisited;
+		my $current = $suboptimal->pop();
+		if (!defined($current)) {
+			$current = pop(@unvisited);
+		}
+		last if (!defined($current));
 
 		# update all neighbors
 		foreach my $edge (@{$vert->{$current}->{_edges}}) {
 			if (($dist{$edge->{to}} eq $infinity) ||
 			($dist{$edge->{to}} > ($dist{$current} + $edge->{weight}) )) {
 				$dist{$edge->{to}} = $dist{$current} + $edge->{weight};
+				$suboptimal->delete_item($edge->{to});
+				$suboptimal->add($edge->{to}, $dist{$edge->{to}});
 			}
 		}
 	}
