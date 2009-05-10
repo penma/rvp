@@ -1,0 +1,94 @@
+# vim:ft=perl
+
+sub g_new { return { vertices => {}, edges => [] }; }
+sub g_vertex {
+	my ($g, $name) = @_;
+	if (!exists($g->{vertices}->{$name})) {
+		$g->{vertices}->{$name} = {
+			_name => $name,
+			_edges => []
+		};
+	}
+	return $g->{vertices}->{$name};
+}
+sub g_edge {
+	my ($g, $from, $to, $weight) = @_;
+	my $v_from = g_vertex($g, $from);
+	my $v_to   = g_vertex($g, $to);
+
+	my $edge = {
+		from   => $from,
+		to     => $to,
+		weight => $weight
+	};
+
+	push(@{$g->{edges}}, $edge);
+	push(@{$v_from->{_edges}}, $edge);
+	push(@{$v_to->{_edges}}, $edge);
+}
+
+sub g_dijkstra {
+	my ($g, $from, $to) = @_;
+
+	return undef if (!exists($g->{vertices}->{$to}));
+
+	my $vert = $g->{vertices};
+	my %unvisited = map { $_ => 1 } keys(%{$vert});
+	foreach (keys(%unvisited)) {
+		$vert->{$_}->{_dijkstra_d} = -1;
+	}
+	$vert->{$from}->{_dijkstra_d} = 0;
+	
+	while (keys(%unvisited)) {
+		# find smallest entry in unvisited list
+		my @uv = sort {
+			$vert->{$a}->{_dijkstra_d} == -1 ? +1 :
+			($vert->{$b}->{_dijkstra_d} == -1 ? -1 :
+			($vert->{$a}->{_dijkstra_d} <=> $vert->{$b}->{_dijkstra_d})
+			)
+		} keys(%unvisited);
+		my $current = $uv[0];
+		return undef if ($vert->{$current}->{_dijkstra_d} == -1);
+
+		foreach my $edge (
+			grep { exists($unvisited{$_->{to}}) }
+			@{$vert->{$current}->{_edges}}) {
+			my $nn = $edge->{to};
+			$vert->{$nn}->{_dijkstra_d} = $vert->{$current}->{_dijkstra_d} + $edge->{weight}
+				if ($vert->{$nn}->{_dijkstra_d} == -1 or
+				$vert->{$current}->{_dijkstra_d} + $edge->{weight} < $vert->{$nn}->{_dijkstra_d});
+		}
+
+		delete($unvisited{$current});
+	}
+
+	# trace the path from the destination to the start
+	my @path = ();
+	my $current = $to;
+	while ($current ne $from) {
+		unshift(@path, $current);
+
+		foreach my $edge (grep { $_->{to} eq $current } @{$vert->{$current}->{_edges}}) {
+			if ($vert->{$current}->{_dijkstra_d} == $vert->{$edge->{from}}->{_dijkstra_d} + $edge->{weight}) {
+				$current = $edge->{from};
+				last;
+			}
+		}
+	}
+	unshift(@path, $from);
+
+	return @path;
+}
+
+sub g_count_vertices {
+	my ($g) = @_;
+	return scalar(keys(%{$g->{vertices}}));
+}
+
+sub g_count_edges {
+	my ($g) = @_;
+	return scalar(@{$g->{edges}});
+}
+
+1;
+
