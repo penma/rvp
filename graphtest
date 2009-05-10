@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+my $be;
+if (!defined($ARGV[0]) or ($ARGV[0] ne "-p" and $ARGV[0] ne "-g")) {
+	print STDERR "Please call with -p or -g\n";
+	exit(1);
+} elsif ($ARGV[0] eq "-p") {
+	$be = "graph.pi";
+} elsif ($ARGV[0] eq "-g") {
+	$be = "graph-pm.pi";
+}
+do($be);
+
+$| = 1;
+
+my $g = g_new();
+
+sub randnode() { return chr(ord("A") + int(rand(3))) . chr(ord("A") + int(rand(26))) . chr(ord("A") + int(rand(26))); }
+
+foreach ("AAA".."CZZ") {
+	g_edge($g, $_, "center", 9_999_999);
+	g_edge($g, "center", $_, 9_999_999);
+}
+
+srand(4789184);
+for (1..2_000) {
+	printf STDERR ("%5.1f%%\r", 100 * $_ / 2_000) unless ($_ % 243);
+	my @n = (randnode, randnode, randnode, randnode, randnode);
+	for (my $i = 0; $i < scalar(@n) - 1; $i++) {
+		g_edge($g, $n[$i], $n[$i + 1], 1);
+	}
+}
+print STDERR "\n";
+
+printf STDERR ("%d vertices, %d edges\n", g_count_vertices($g), g_count_edges($g));
+
+print join(" . ", g_dijkstra($g, "AAA", "BZF")) . "\n";
+

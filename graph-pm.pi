@@ -1,0 +1,31 @@
+# vim:ft=perl
+
+use Graph;
+
+sub g_new { return new Graph(directed => 1, hyperedged => 1); }
+sub g_vertex {
+	my ($g, $name) = @_;
+	$g->add_vertex($name);
+}
+sub g_edge {
+	my ($g, $from, $to, $weight) = @_;
+	$g->add_weighted_edge($from, $to, $weight);
+}
+
+sub g_dijkstra {
+	my ($g, $from, $to) = @_;
+	return $g->SP_Dijkstra($from, $to);
+}
+
+sub g_count_vertices {
+	my ($g) = @_;
+	return scalar($g->vertices);
+}
+
+sub g_count_edges {
+	my ($g) = @_;
+	return scalar($g->edges);
+}
+
+1;
+
