@@ -1,4 +1,6 @@
 # vim:ft=perl
+use strict;
+use warnings;
 
 sub g_new { return { vertices => {}, edges => [] }; }
 sub g_vertex {
@@ -33,43 +35,49 @@ sub g_dijkstra {
 	return undef if (!exists($g->{vertices}->{$to}));
 
 	my $vert = $g->{vertices};
-	my %unvisited = map { $_ => 1 } keys(%{$vert});
-	foreach (keys(%unvisited)) {
-		$vert->{$_}->{_dijkstra_d} = -1;
+	my %dist;
+	my %prev;
+	my @unvisited = keys(%{$vert});
+	my $infinity = -1;
+
+	foreach (@unvisited) {
+		$dist{$_} = $infinity;
+		$prev{$_} = $_;
 	}
-	$vert->{$from}->{_dijkstra_d} = 0;
-	
-	while (keys(%unvisited)) {
-		# find smallest entry in unvisited list
-		my @uv = sort {
-			$vert->{$a}->{_dijkstra_d} == -1 ? +1 :
-			($vert->{$b}->{_dijkstra_d} == -1 ? -1 :
-			($vert->{$a}->{_dijkstra_d} <=> $vert->{$b}->{_dijkstra_d})
-			)
-		} keys(%unvisited);
-		my $current = $uv[0];
-		return undef if ($vert->{$current}->{_dijkstra_d} == -1);
+	$dist{$from} = 0;
 
-		foreach my $edge (
-			grep { exists($unvisited{$_->{to}}) }
-			@{$vert->{$current}->{_edges}}) {
-			my $nn = $edge->{to};
-			$vert->{$nn}->{_dijkstra_d} = $vert->{$current}->{_dijkstra_d} + $edge->{weight}
-				if ($vert->{$nn}->{_dijkstra_d} == -1 or
-				$vert->{$current}->{_dijkstra_d} + $edge->{weight} < $vert->{$nn}->{_dijkstra_d});
+	while (@unvisited) {
+		# find the smallest unvisited node
+		@unvisited = sort {
+			$dist{$a} eq $infinity ? +1 :
+			$dist{$b} eq $infinity ? -1 :
+			$dist{$a} <=> $dist{$b};
+		} @unvisited;
+		my $current = shift @unvisited;
+
+		# update all neighbors
+		foreach my $edge (@{$vert->{$current}->{_edges}}) {
+			if (($dist{$edge->{to}} eq $infinity) ||
+			($dist{$edge->{to}} > ($dist{$current} + $edge->{weight}) )) {
+				$dist{$edge->{to}} = $dist{$current} + $edge->{weight};
+				# $prev{$edge->{to}} = $current;
+			}
 		}
-
-		delete($unvisited{$current});
 	}
 
 	# trace the path from the destination to the start
+	#my @path = ($to);
+	#my $current = $to;
+	#while ($current ne $from) {
+	#	$current = $prev{$current};
+	#	unshift(@path, $current);
+	#}
 	my @path = ();
 	my $current = $to;
 	while ($current ne $from) {
 		unshift(@path, $current);
-
 		foreach my $edge (grep { $_->{to} eq $current } @{$vert->{$current}->{_edges}}) {
-			if ($vert->{$current}->{_dijkstra_d} == $vert->{$edge->{from}}->{_dijkstra_d} + $edge->{weight}) {
+			if ($dist{$current} == $dist{$edge->{from}} + $edge->{weight}) {
 				$current = $edge->{from};
 				last;
 			}

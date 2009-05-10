@@ -2,6 +2,17 @@
 use strict;
 use warnings;
 
+use Time::HiRes qw(time);
+
+sub td_start {
+	$main::x____time = time();
+}
+
+sub td_end {
+	my $diff = time() - $main::x____time;
+	return sprintf("%.3f seconds", $diff);
+}
+
 my $be;
 if (!defined($ARGV[0]) or ($ARGV[0] ne "-p" and $ARGV[0] ne "-g")) {
 	print STDERR "Please call with -p or -g\n";
@@ -11,7 +22,7 @@ if (!defined($ARGV[0]) or ($ARGV[0] ne "-p" and $ARGV[0] ne "-g")) {
 } elsif ($ARGV[0] eq "-g") {
 	$be = "graph-pm.pi";
 }
-do($be);
+do($be) or die($@);
 
 $| = 1;
 
@@ -36,5 +47,7 @@ print STDERR "\n";
 
 printf STDERR ("%d vertices, %d edges\n", g_count_vertices($g), g_count_edges($g));
 
+td_start();
 print join(" . ", g_dijkstra($g, "AAA", "BZF")) . "\n";
+print "took " . td_end() . "\n";
 
