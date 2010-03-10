@@ -1,0 +1,31 @@
+#
+# needs correct times
+[OB-Anne-Frank-Realschule] [OB-Marktstraße] [1] [1]
+[] [OB-Hauptbahnhof] [1] [1]
+
+# altenberger strasse nur in eine richtung
+[] [OB-Altenberger Straße] [1] [0]
+[] [OB-Bero-Zentrum] [1] [0]
+[] [OB-Hauptbahnhof] [1] [0]
+
+[OB-Bero-Zentrum] [OB-Wilmsstraße] [1] [1]
+[] [OB-Siebenbürgenstraße] [1] [1]
+[] [OB-Wunderstraße] [1] [1]
+[] [OB-Ulmenstraße] [1] [1]
+[] [OB-Lirich Westfriedhof] [1] [1]
+[] [OB-Hagelkreuzstraße] [1] [1]
+[] [OB-Westmarkstraße] [1] [1]
+
+# ab hier 995 unterschiedlich von 935
+[] [OB-Am Sandberg] [1] [1]
+[] [OB-Skagerrakstraße] [1] [1]
+
+# ab hier 995 unterschiedlich von 955
+[] [Wolframstraße] [1] [1]
+[] [Buschhauser Straße] [1] [1]
+[] [Albert-Einstein-Straße] [1] [1]
+[] [Ruprechtstraße] [1] [1]
+[] [Kampstraße] [1] [1]
+[] [Morian Stift] [1] [1]
+[] [Hermannstraße] [1] [1]
+[] [Marxloh Pollmann] [1] [1]

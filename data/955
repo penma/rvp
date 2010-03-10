@@ -1,0 +1,51 @@
+#
+# needs correct times
+[OB-Anne-Frank-Realschule] [OB-Marktstraße] [1] [1]
+[] [OB-Hauptbahnhof] [1] [1]
+
+# altenberger strasse nur in eine richtung
+[] [OB-Altenberger Straße] [1] [0]
+[] [OB-Bero-Zentrum] [1] [0]
+[] [OB-Hauptbahnhof] [1] [0]
+
+[OB-Bero-Zentrum] [OB-Wilmsstraße] [1] [1]
+[] [OB-Siebenbürgenstraße] [1] [1]
+[] [OB-Wunderstraße] [1] [1]
+[] [OB-Ulmenstraße] [1] [1]
+[] [OB-Lirich Westfriedhof] [1] [1]
+[] [OB-Hagelkreuzstraße] [1] [1]
+[] [OB-Westmarkstraße] [1] [1]
+
+# ab hier 955 unterschiedlich von 935
+[] [OB-Am Sandberg] [1] [1]
+[] [OB-Skagerrakstraße] [1] [1]
+[] [OB-Fafnerstraße] [1] [1]
+[] [OB-Buschhausen Mitte] [1] [1]
+# ab hier 955 wie 935
+[] [OB-Friesen-/Beerenstraße] [1] [1]
+[] [OB-Torgaustraße] [1] [1]
+[] [OB-Badenstraße] [1] [1]
+[] [OB-Preußenstraße] [1] [1]
+[] [OB-Sterkrade Bf Westseite] [1] [1]
+[] [OB-Sterkrade Bf] [1] [1]
+# sterkrader teufelskreis
+[OB-Hagelkreuz] [OB-Neumarkt] [1] [0]
+[] [OB-Sterkrade Bf] [1] [0]
+[] [OB-Rathaus Sterkrade] [1] [0]
+[] [OB-Hirsch-Center/Techn. Rathaus] [1] [0]
+[] [OB-Sterkrade Mitte] [1] [0]
+[] [OB-Hagelkreuz] [1] [0]
+# ab hier weiter
+[] [OB-Mathildestraße] [1] [1]
+[] [OB-Ludwigshütte] [1] [1]
+[] [OB-Alsfeldstraße] [1] [1]
+[] [OB-Glückauf] [1] [1]
+[] [OB-Wolfstraße] [1] [1]
+[] [OB-Grubenstraße] [1] [1]
+[] [OB-Sternstraße] [1] [1]
+[] [OB-Holten Bf] [1] [1]
+[] [OB-Franzstraße] [1] [1]
+[] [OB-Vandalenstraße] [1] [1]
+[] [OB-Martinstraße] [1] [1]
+[] [OB-Schmachtendorf Mitte] [1] [1]
+[] [OB-Heinrich-Böll-Gesamtschule] [1] [1]
