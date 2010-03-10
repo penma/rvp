@@ -7,43 +7,13 @@ use Time::HiRes qw(time);
 use File::Slurp;
 use File::Find::Rule;
 use Storable qw(dclone);
-use List::MoreUtils qw(uniq);
 
-# use Graph::Directed;
-use Graph::Fastgraph::GraphPM;
-
-sub td_start {
-	$main::x____time = time();
-}
-
-sub td_end {
-	my $diff = time() - $main::x____time;
-	return sprintf("%.3f seconds", $diff);
-}
-
-# ---
+use FastaGraph;
 
 $| = 1;
 
-#our %lines;
-#do("data/master");
+my $g = FastaGraph->new();
 
-print STDERR "Building graph";
-td_start();
-
-# my $g = new Graph::Directed;
-my $g = new Graph::Fastgraph::GraphPM;
-#while (my ($line, $linedata) = each(%lines)) {
-#	for (my $c = 0; $c < scalar(@{$linedata->{stops}}) - 2; $c += 2) {
-#		$g->addedge(
-#			$linedata->{stops}->[$c+0]->{city} . " " . $linedata->{stops}->[$c+0]->{name},
-#			$linedata->{stops}->[$c+2]->{city} . " " . $linedata->{stops}->[$c+2]->{name},
-#			$linedata->{stops}->[$c+1]
-#		);
-#	}
-#}
-
-# my @datafiles = map { "data/wurststadt/$_" } (qw(a b c d e f u1 u2 u3));
 my @datafiles = File::Find::Rule->file()->in("data/duistwo");
 
 my $last_to;
@@ -54,47 +24,40 @@ for my $df (@datafiles) {
 	if ($stops[0] !~ /^#/) {
 		# simple format
 		for (my $c = 0; $c < scalar(@stops) - 1; $c++) {
-			$g->add_weighted_edge($stops[$c], $stops[$c + 1], 1);
-			$g->add_weighted_edge($stops[$c + 1], $stops[$c], 1);
+			$g->addedge($stops[$c], $stops[$c + 1], 1);
+			$g->addedge($stops[$c + 1], $stops[$c], 1);
 		}
 	} else {
 		# extended format: each line is exactly one segment:
 		# [from]    [to]   [time_estimate] [dir]
 		for (my $c = 1; $c < scalar(@stops); $c++) {
 			my ($from, $to, $time_estimate, $autoreverse) = ($stops[$c] =~ /^\[(.*?)\]\s+\[(.*?)\]\s+\[(\d+)\]\s+\[(\d)\]$/);
+			next if (!defined($from) and !defined($to)); # skip lines without the right format
 			if ($from eq "") { $from = $last_to; }
-			$g->add_weighted_edge($from, $to, $time_estimate);
-			$g->add_weighted_edge($to, $from, $time_estimate) if ($autoreverse);
+			$g->addedge($from, $to, $time_estimate);
+			$g->addedge($to, $from, $time_estimate) if ($autoreverse);
 			$last_to = $to;
 		}
 	}
 }
 
-# print STDERR " - done (". $g->vertices() . " vertices, spent " . td_end() . ").\n";
-
-#sub path_length {
-#	my ($graph, $path) = @_;
-#	my $w = 0;
-#	for (my $c = 0; $c < @{$path} - 1; $c++) {
-#		$w += (grep { $_->[0] eq $path->[$c] and $_->[1] eq $path->[$c + 1] } @{$graph->{vertices}->{$path->[$c]}->[1]})[0]->[2];
-#	}
-#	$w;
-#}
-
 sub walk_the_tree {
 	my ($graph, $from, $to, $level) = @_;
 
 	if ($level == 0) {
-		[ $graph->SP_Dijkstra($from, $to) ];
+		[ $graph->dijkstra($from, $to) ];
 	} else {
-		my @d = ([ $graph->SP_Dijkstra($from, $to) ]);
+		# add shortest path for what we have now
+		my @d = ([ $graph->dijkstra($from, $to) ]);
+
 		foreach (0..(@{$d[0]}-2)) {
-#				my $g2 = $graph->deep_copy();
-				my $g2 = dclone($graph);
-			print "eliminating edge $d[0]->[$_], $d[0]->[$_+1]\n";
-#				$g2->delete_edge($d[0]->[$_], $d[0]->[$_+1]);
-				$g2->deledge($d[0]->[$_], $d[0]->[$_+1]);
+			# from copies of the graph, remove one edge from the result path,
+			# and continue finding paths on that tree.
+			my $g2 = dclone($graph);
+			$g2->deledge($d[0]->[$_], $d[0]->[$_+1]);
 			my @new = walk_the_tree($g2, $from, $to, $level - 1);
+
+			# add all new paths, unless they are already present in the result set
 			foreach my $n (@new) {
 				push(@d, $n) unless grep { $n ~~ $_ } @d;
 			}
@@ -103,7 +66,6 @@ sub walk_the_tree {
 	}
 }
 
-# print join("\n", map { join(" -> ", @{$_}) } walk_the_tree($g, $ARGV[0], $ARGV[1], 2));
 my @conn = walk_the_tree($g, $ARGV[0], $ARGV[1], 2);
 my $raw = join("\n", map { join(" -> ", @$_) } @conn);
 $raw =~ s/Overbruchstraße -> Wichernheim -> Am Weißen Stein -> Kreuzweg -> Hauerstraße -> Walsumer Wardtstraße -> Königstraße -> Alt-Walsum Friedhof -> Am Römerberg/Overbruchstraße ...919... Am Römerberg/g;
@@ -111,15 +73,4 @@ $raw =~ s/Watereck -> DIN-Bärenstraße -> DIN-Pollenkamp -> DIN-Trabrennbahn ->
 $raw =~ s/Walsum Rathaus -> Sonnenstraße -> Schwan -> Striepweg -> Heckmann -> Wolfstraße -> Marxloh Pollmann/Walsum Rathaus ...903... Marxloh Pollmann/g;
 $raw =~ s/Hamborn Feuerwache -> Amsterdamer Straße -> Theodor-Heuss-Straße -> Landschaftspark Nord -> Voßstraße -> Emilstraße -> Meiderich Bahnhof/Hamborn Feuerwache ...903... Meiderich Bahnhof/g;
 print $raw;
-
-
-#td_start();
-#my @way = $g->dijkstra($ARGV[0], $ARGV[1]);
-#print STDERR "Found a way (took " . td_end() . ")!\n";
-
-#sub dumpway {
-#	my @way = @_;
-#	return join(" . ", @way) . "\n";
-#}
-#print dumpway(@way);
 
