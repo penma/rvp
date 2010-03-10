@@ -14,7 +14,7 @@ $| = 1;
 
 my $g = FastaGraph->new();
 
-my @datafiles = File::Find::Rule->file()->in("data/duistwo");
+my @datafiles = File::Find::Rule->file()->in("data");
 
 my $last_to;
 for my $df (@datafiles) {
