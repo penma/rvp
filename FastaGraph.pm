@@ -2,6 +2,7 @@ package FastaGraph;
 
 use strict;
 use warnings;
+use 5.010;
 
 use constant {
 	EDGE_FROM => 0, EDGE_TO => 1, EDGE_WEIGHT => 2,
@@ -55,11 +56,7 @@ sub dijkstra {
 
 	while (1) {
 		# find the smallest unvisited node
-		my $current = $suboptimal->pop();
-		if (!defined($current)) {
-			$current = pop(@unvisited);
-		}
-		last if (!defined($current));
+		my $current = $suboptimal->pop() // pop(@unvisited) // last;
 
 		# update all neighbors
 		foreach my $edge (@{$vert->{$current}->[VERT_EDGES_OUT]}) {
