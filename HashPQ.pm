@@ -58,7 +58,7 @@ sub update {
 	push(@{$self->{queue}->{$priority}}, $payload);
 	if (!defined($self->{min_key}) or $priority < $self->{min_key}) {
 		$self->{min_key} = $priority;
-	} elsif ($priority > $self->{min_key} and not (defined($op) and defined($self->{queue}->{$op}))) {
+	} elsif ($priority > $self->{min_key} and (defined($op) and defined($self->{queue}->{$op}))) {
 		$self->{min_key} = min keys(%{$self->{queue}});
 	}
 }
