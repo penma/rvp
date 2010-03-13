@@ -8,7 +8,7 @@ use constant {
 	VERT_NAME => 0, VERT_EDGES_OUT => 1, VERT_EDGES_IN => 2,
 };
 
-use List::PriorityQueue;
+use HashPQ;
 
 sub new {
 	my ($class) = @_;
@@ -47,7 +47,7 @@ sub dijkstra {
 	# nodes that have never been touched (where dist == infinity,
 	# NOT nodes that just are not optimal yet.)
 	my @unvisited = grep { $_ ne $from } keys(%{$vert});
-	my $suboptimal = new List::PriorityQueue;
+	my $suboptimal = new HashPQ;
 	$suboptimal->insert($from, 0);
 
 	$dist{$_} = -1 foreach (@unvisited);
