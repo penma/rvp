@@ -38,33 +38,36 @@ sub addvertex {
 	return $self->{vertices}->{$name};
 }
 
-sub dijkstra {
+sub dijkstra_first {
+	my ($self, $from, $to) = @_;
+	$self->{d_from} = $from;
+	$self->{d_dist} = {};
+	$self->{d_unvisited}  = [ grep { $_ ne $from } keys(%{$self->{vertices}}) ];
+	$self->{d_suboptimal} = { $from => 0 };
+
+	dijkstra_worker($self, $from, $to);
+}
+
+sub dijkstra_worker {
 	my ($self, $from, $to) = @_;
 
-	return undef if (!exists($self->{vertices}->{$to}));
-
 	my $vert = $self->{vertices};
-	my %dist;                       # distance from start node
-	# nodes that have never been touched (where dist == infinity,
-	# NOT nodes that just are not optimal yet.)
-	my @unvisited = grep { $_ ne $from } keys(%{$vert});
 	my $suboptimal = new HashPQ;
-	$suboptimal->insert($from, 0);
-
-	$dist{$_} = -1 foreach (@unvisited);
-	$dist{$from} = 0;
+	$suboptimal->insert($_, $self->{d_suboptimal}->{$_}) foreach (keys(%{$self->{d_suboptimal}}));
+	$self->{d_dist}->{$_} = -1 foreach (@{$self->{d_unvisited}});
+	$self->{d_dist}->{$from} = 0;
 
 	while (1) {
 		# find the smallest unvisited node
-		my $current = $suboptimal->pop() // pop(@unvisited) // last;
+		my $current = $suboptimal->pop() // pop(@{$self->{d_unvisited}}) // last;
 
 		# update all neighbors
 		foreach my $edge (@{$vert->{$current}->[VERT_EDGES_OUT]}) {
-			if (($dist{$edge->[EDGE_TO]} == -1) ||
-			($dist{$edge->[EDGE_TO]} > ($dist{$current} + $edge->[EDGE_WEIGHT]) )) {
+			if (($self->{d_dist}->{$edge->[EDGE_TO]} == -1) ||
+			($self->{d_dist}->{$edge->[EDGE_TO]} > ($self->{d_dist}->{$current} + $edge->[EDGE_WEIGHT]) )) {
 				$suboptimal->update(
 					$edge->[EDGE_TO],
-					$dist{$edge->[EDGE_TO]} = $dist{$current} + $edge->[EDGE_WEIGHT]
+					$self->{d_dist}->{$edge->[EDGE_TO]} = $self->{d_dist}->{$current} + $edge->[EDGE_WEIGHT]
 				);
 			}
 		}
@@ -76,7 +79,7 @@ sub dijkstra {
 	NODE: while ($current ne $from) {
 		unshift(@path, $current);
 		foreach my $edge (@{$vert->{$current}->[VERT_EDGES_IN]}) {
-			if ($dist{$current} == $dist{$edge->[EDGE_FROM]} + $edge->[EDGE_WEIGHT]) {
+			if ($self->{d_dist}->{$current} == $self->{d_dist}->{$edge->[EDGE_FROM]} + $edge->[EDGE_WEIGHT]) {
 				$current = $edge->[EDGE_FROM];
 				next NODE;
 			}
@@ -88,6 +91,10 @@ sub dijkstra {
 	unshift(@path, $from);
 
 	return @path;
+}
+
+sub dijkstra {
+	goto &dijkstra_first;
 }
 
 sub addedge {
