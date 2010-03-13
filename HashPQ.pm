@@ -11,6 +11,7 @@ sub new {
 	return bless {
 		queue => {},     # payloads by prio
 		prios => {},     # prios by payload
+		min_key => undef,
 	}, shift();
 }
 
@@ -21,19 +22,23 @@ sub delete {
 		$self->{queue}->{$op} = [ grep { $_ ne $payload } @{$self->{queue}->{$op}} ];
 		if (!@{$self->{queue}->{$op}}) {
 			delete($self->{queue}->{$op});
+			if ($self->{min_key} == $op) {
+				$self->{min_key} = min keys(%{$self->{queue}});
+			}
 		}
 	}
 }
 
 sub pop {
 	my ($self) = @_;
-	my $bucket = min keys(%{$self->{queue}});
-	if (!defined($bucket)) {
+	if (!defined($self->{min_key})) {
 		return undef;
 	}
-	my $elem = shift(@{$self->{queue}->{$bucket}});
-	if (!@{$self->{queue}->{$bucket}}) {
-		delete($self->{queue}->{$bucket});
+
+	my $elem = shift(@{$self->{queue}->{$self->{min_key}}});
+	if (!@{$self->{queue}->{$self->{min_key}}}) {
+		delete($self->{queue}->{$self->{min_key}});
+		$self->{min_key} = min keys(%{$self->{queue}});
 	}
 	delete($self->{prios}->{$elem});
 	return $elem;
@@ -41,9 +46,21 @@ sub pop {
 
 sub update {
 	my ($self, $payload, $priority) = @_;
-	$self->delete($payload);
+	my $op = $self->{prios}->{$payload};
+	if (defined($op)) {
+		$self->{queue}->{$op} = [ grep { $_ ne $payload } @{$self->{queue}->{$op}} ];
+		if (!@{$self->{queue}->{$op}}) {
+			delete($self->{queue}->{$op});
+		}
+	}
+
 	$self->{prios}->{$payload} = $priority;
 	push(@{$self->{queue}->{$priority}}, $payload);
+	if (!defined($self->{min_key}) or $priority < $self->{min_key}) {
+		$self->{min_key} = $priority;
+	} elsif ($priority > $self->{min_key} and not (defined($op) and defined($self->{queue}->{$op}))) {
+		$self->{min_key} = min keys(%{$self->{queue}});
+	}
 }
 
 *insert = \&update;
