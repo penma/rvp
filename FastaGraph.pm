@@ -132,29 +132,14 @@ sub deledge {
 	# find the edge. assume it only exists once -> only delete the first.
 	# while we're at it, delete the edge from the source vertex...
 	my $e;
-	my $c = 0;
-	foreach (@{$v_from->[VERT_EDGES_OUT]}) {
-		if ($_->[EDGE_TO] eq $_[2]) {
-			$e = $_;
-			splice(@{$v_from->[VERT_EDGES_OUT]}, $c, 1);
-			last;
-		}
-		$c++;
-	}
+	@{$v_from->[VERT_EDGES_OUT]} = grep { $_->[EDGE_TO] ne $_[2] or ($e = $_, 0) } @{$v_from->[VERT_EDGES_OUT]};
 	return undef if (!defined($e));
 
 	# now search it in the destination vertex' list, delete it there
 	# also only delete the first matching one here (though now there
 	# shouldn't be any duplicates at all because now we're matching the
 	# actual edge, not just its endpoints like above.
-	$c = 0;
-	foreach (@{$v_to->[VERT_EDGES_IN]}) {
-		if ($_ == $e) {
-			splice(@{$v_to->[VERT_EDGES_IN]}, $c, 1);
-			last;
-		}
-		$c++;
-	}
+	@{$v_to->[VERT_EDGES_IN]} = grep { $_ != $e } @{$v_to->[VERT_EDGES_IN]};
 
 	# and remove it from the graph's vertex list
 	@{$_[0]->{edges}} = grep { $_ != $e } @{$_[0]->{edges}}
