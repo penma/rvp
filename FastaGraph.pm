@@ -38,16 +38,6 @@ sub addvertex {
 	return $self->{vertices}->{$name};
 }
 
-sub dijkstra_first {
-	my ($self, $from, $to) = @_;
-	$self->{d_from} = $from;
-	$self->{d_dist} = {};
-	$self->{d_unvisited}  = [ grep { $_ ne $from } keys(%{$self->{vertices}}) ];
-	$self->{d_suboptimal} = { $from => 0 };
-
-	dijkstra_worker($self, $from, $to);
-}
-
 sub dijkstra_worker {
 	my ($self, $from, $to) = @_;
 
@@ -93,8 +83,30 @@ sub dijkstra_worker {
 	return @path;
 }
 
-sub dijkstra {
+sub dijkstra_first {
+	my ($self, $from, $to) = @_;
+	$self->{d_from} = $from;
+	$self->{d_dist} = {};
+	$self->{d_unvisited}  = [ grep { $_ ne $from } keys(%{$self->{vertices}}) ];
+	$self->{d_suboptimal} = { $from => 0 };
+
+	dijkstra_worker($self, $from, $to);
+}
+
+sub dijkstra_continue {
+	my ($self, $from, $to, $del_to) = @_;
+	# instead of reinitializing, it should invoke the worker after initializing
+	# to a state that assumes that an edge to $del_to has just been deleted.
 	goto &dijkstra_first;
+}
+
+sub dijkstra {
+	my ($self, $from, $to, $del_to) = @_;
+	if (!defined($self->{d_from}) or $self->{d_from} ne $from) {
+		goto &dijkstra_first;
+	} else {
+		goto &dijkstra_continue;
+	}
 }
 
 sub addedge {

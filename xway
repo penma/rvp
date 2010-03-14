@@ -42,28 +42,25 @@ for my $df (@datafiles) {
 }
 
 sub walk_the_tree {
-	my ($graph, $from, $to, $level) = @_;
+	my ($graph, $from, $to, $level, $del_to) = @_;
+	my @d = [ $graph->dijkstra($from, $to, $del_to) ];
 
-	if ($level == 0) {
-		[ $graph->dijkstra($from, $to) ];
-	} else {
-		# add shortest path for what we have now
-		my @d = ([ $graph->dijkstra($from, $to) ]);
-
+	if ($level > 0) {
 		foreach (0..(@{$d[0]}-2)) {
 			# from copies of the graph, remove one edge from the result path,
 			# and continue finding paths on that tree.
 			my $g2 = dclone($graph);
 			$g2->deledge($d[0]->[$_], $d[0]->[$_+1]);
-			my @new = walk_the_tree($g2, $from, $to, $level - 1);
+			my @new = walk_the_tree($g2, $from, $to, $level - 1, $d[0]->[$_+1]);
 
 			# add all new paths, unless they are already present in the result set
 			foreach my $n (@new) {
 				push(@d, $n) unless grep { $n ~~ $_ } @d;
 			}
 		}
-		@d;
 	}
+
+	@d;
 }
 
 sub path_length {
