@@ -52,13 +52,11 @@ sub dijkstra_worker {
 	my ($self, $from, $to) = @_;
 
 	my $vert = $self->{vertices};
-	my (%sub_prios, %sub_queue, $sub_minkey);
-	foreach (keys(%{$self->{d_suboptimal}})) {
-		$sub_prios{$_} = $self->{d_suboptimal}->{$_};
-		push(@{$sub_queue{$self->{d_suboptimal}->{$_}}}, $_);
-		if (!defined($sub_minkey) or $self->{d_suboptimal}->{$_} < $sub_minkey) {
-			$sub_minkey = $self->{d_suboptimal}->{$_};
-		}
+	my %sub_prios = %{$self->{d_suboptimal}};
+	my $sub_minkey = min values(%sub_prios);
+	my %sub_queue;
+	while (my ($payload, $prio) = each(%sub_prios)) {
+		push(@{$sub_queue{$prio}}, $payload);
 	}
 	$self->{d_dist}->{$_} = -1 foreach (@{$self->{d_unvisited}});
 	$self->{d_dist}->{$from} = 0;
