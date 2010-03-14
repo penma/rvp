@@ -66,8 +66,18 @@ sub walk_the_tree {
 	}
 }
 
+sub path_length {
+	my ($graph, $path) = @_;
+	my $w = 0;
+	for (my $c = 0; $c < @{$path} - 1; $c++) {
+		$w += (grep { $_->[0] eq $path->[$c] and $_->[1] eq $path->[$c + 1] } @{$graph->{vertices}->{$path->[$c]}->[1]})[0]->[2];
+	}
+	$w;
+}
+
+
 my @conn = walk_the_tree($g, $ARGV[0], $ARGV[1], 2);
-my $raw = join("\n", map { join(" -> ", @$_) } @conn);
+my $raw = join("\n", map { path_length($g, $_) . " " . join(" -> ", @$_) } @conn);
 $raw =~ s/Overbruchstraße -> Wichernheim -> Am Weißen Stein -> Kreuzweg -> Hauerstraße -> Walsumer Wardtstraße -> Königstraße -> Alt-Walsum Friedhof -> Am Römerberg/Overbruchstraße ...919... Am Römerberg/g;
 $raw =~ s/Watereck -> DIN-Bärenstraße -> DIN-Pollenkamp -> DIN-Trabrennbahn -> DIN-Neustraße -> DIN-Bahnhof/Watereck ...903... DIN-Bahnhof/g;
 $raw =~ s/Walsum Rathaus -> Sonnenstraße -> Schwan -> Striepweg -> Heckmann -> Wolfstraße -> Marxloh Pollmann/Walsum Rathaus ...903... Marxloh Pollmann/g;
