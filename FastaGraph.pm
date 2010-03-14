@@ -145,14 +145,7 @@ sub deledge {
 	}
 
 	# and remove it from the graph's vertex list
-	$c = 0;
-	foreach (@{$_[0]->{edges}}) {
-		if ($_ == $e) {
-			splice(@{$_[0]->{edges}}, $c, 1);
-			last;
-		}
-		$c++;
-	}
+	@{$_[0]->{edges}} = grep { $_ != $e } @{$_[0]->{edges}}
 }
 
 1;
