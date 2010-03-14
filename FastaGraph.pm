@@ -4,6 +4,8 @@ use strict;
 use warnings;
 use 5.010;
 
+use List::Util qw(min);
+
 use constant {
 	EDGE_FROM => 0, EDGE_TO => 1, EDGE_WEIGHT => 2,
 	VERT_NAME => 0, VERT_EDGES_OUT => 1, VERT_EDGES_IN => 2,
@@ -52,23 +54,51 @@ sub dijkstra_worker {
 	my ($self, $from, $to) = @_;
 
 	my $vert = $self->{vertices};
-	my $suboptimal = new HashPQ;
-	$suboptimal->insert($_, $self->{d_suboptimal}->{$_}) foreach (keys(%{$self->{d_suboptimal}}));
+	my (%sub_prios, %sub_queue, $sub_minkey);
+	foreach (keys(%{$self->{d_suboptimal}})) {
+		$sub_prios{$_} = $self->{d_suboptimal}->{$_};
+		push(@{$sub_queue{$self->{d_suboptimal}->{$_}}}, $_);
+		if (!defined($sub_minkey) or $self->{d_suboptimal}->{$_} < $sub_minkey) {
+			$sub_minkey = $self->{d_suboptimal}->{$_};
+		}
+	}
 	$self->{d_dist}->{$_} = -1 foreach (@{$self->{d_unvisited}});
 	$self->{d_dist}->{$from} = 0;
 
 	while (1) {
 		# find the smallest unvisited node
-		my $current = $suboptimal->pop() // pop(@{$self->{d_unvisited}}) // last;
+		my $current;
+		if (!defined($sub_minkey)) {
+			$current = pop(@{$self->{d_unvisited}}) // last;
+		} else {
+			$current = shift(@{$sub_queue{$sub_minkey}});
+			if (!@{$sub_queue{$sub_minkey}}) {
+				delete($sub_queue{$sub_minkey});
+				$sub_minkey = min keys(%sub_queue);
+			}
+			delete($sub_prios{$current});
+		}
 
 		# update all neighbors
 		foreach my $edge (@{$vert->{$current}->[VERT_EDGES_OUT]}) {
 			if (($self->{d_dist}->{$edge->[EDGE_TO]} == -1) ||
 			($self->{d_dist}->{$edge->[EDGE_TO]} > ($self->{d_dist}->{$current} + $edge->[EDGE_WEIGHT]) )) {
-				$suboptimal->update(
-					$edge->[EDGE_TO],
-					$self->{d_dist}->{$edge->[EDGE_TO]} = $self->{d_dist}->{$current} + $edge->[EDGE_WEIGHT]
-				);
+				my $new_prio = $self->{d_dist}->{$edge->[EDGE_TO]} = $self->{d_dist}->{$current} + $edge->[EDGE_WEIGHT];
+				my $orig_prio = $sub_prios{$edge->[EDGE_TO]};
+				if (defined($orig_prio)) {
+					$sub_queue{$orig_prio} = [ grep { $_ ne $edge->[EDGE_TO] } @{$sub_queue{$orig_prio}} ];
+					if (!@{$sub_queue{$orig_prio}}) {
+						delete($sub_queue{$orig_prio});
+					}
+				}
+
+				$sub_prios{$edge->[EDGE_TO]} = $new_prio;
+				push(@{$sub_queue{$new_prio}}, $edge->[EDGE_TO]);
+				if (!defined($sub_minkey) or $new_prio < $sub_minkey) {
+					$sub_minkey = $new_prio;
+				} elsif ($new_prio > $sub_minkey and (defined($orig_prio) and defined($sub_queue{$orig_prio}))) {
+					$sub_minkey = min keys(%sub_queue);
+				}
 			}
 		}
 	}
