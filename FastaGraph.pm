@@ -61,9 +61,9 @@ sub dijkstra_worker {
 	$self->{d_dist}->{$_} = -1 foreach (@{$self->{d_unvisited}});
 	$self->{d_dist}->{$from} = 0;
 
+	my $current;
 	while (1) {
 		# find the smallest unvisited node
-		my $current;
 		if (!defined($sub_minkey)) {
 			$current = pop(@{$self->{d_unvisited}}) // last;
 		} else {
@@ -101,7 +101,7 @@ sub dijkstra_worker {
 
 	# trace the path from the destination to the start
 	my @path = ();
-	my $current = $to;
+	$current = $to;
 	NODE: while ($current ne $from) {
 		unshift(@path, $current);
 		foreach my $edge (@{$vert->{$current}->[VERT_EDGES_IN]}) {
