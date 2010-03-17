@@ -4,6 +4,9 @@ use strict;
 use warnings;
 use 5.010;
 
+use Data::Dumper;
+use List::Util qw(min);
+
 use constant {
 	EDGE_FROM => 0, EDGE_TO => 1, EDGE_WEIGHT => 2,
 	VERT_NAME => 0, VERT_EDGES_OUT => 1, VERT_EDGES_IN => 2,
@@ -128,6 +131,10 @@ sub deledge {
 	my $v = $_[0]->{vertices};
 	my $v_from = $v->{$_[1]};
 	my $v_to   = $v->{$_[2]};
+
+	# DEBUG FIXME
+	push(@{$_[0]->{dd_del}}, $_[2])
+		unless ((caller(1))[3] eq "FastaGraph::addedge");
 
 	# find the edge. assume it only exists once -> only delete the first.
 	# while we're at it, delete the edge from the source vertex...
