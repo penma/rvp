@@ -79,5 +79,6 @@ $raw =~ s/Overbruchstraße -> Wichernheim -> Am Weißen Stein -> Kreuzweg -> Hau
 $raw =~ s/Watereck -> DIN-Bärenstraße -> DIN-Pollenkamp -> DIN-Trabrennbahn -> DIN-Neustraße -> DIN-Bahnhof/Watereck ...903... DIN-Bahnhof/g;
 $raw =~ s/Walsum Rathaus -> Sonnenstraße -> Schwan -> Striepweg -> Heckmann -> Wolfstraße -> Marxloh Pollmann/Walsum Rathaus ...903... Marxloh Pollmann/g;
 $raw =~ s/Hamborn Feuerwache -> Amsterdamer Straße -> Theodor-Heuss-Straße -> Landschaftspark Nord -> Voßstraße -> Emilstraße -> Meiderich Bahnhof/Hamborn Feuerwache ...903... Meiderich Bahnhof/g;
+$raw =~ s/Vierlinden -> Fasanenstraße -> Walsum Betriebshof -> Walsum Rathaus/Vierlinden -> Walsum Rathaus/g; # can do this because currently the duration is the same, and not replacing it just spams the diff-s
 print $raw;
 
