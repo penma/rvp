@@ -4,7 +4,10 @@ use warnings;
 use 5.010;
 
 use Data::Dumper;
+use Date::Format;
 use Date::Parse;
+use List::MoreUtils qw(firstidx);
+use Storable qw(dclone);
 
 # these are shorthands for many stations. useful since the names are hardcoded below. (for now)
 use constant {
@@ -43,16 +46,14 @@ use constant {
 	s_hoe => "Hoeveler Straße",
 };
 
+# TERMS USED IN THIS CODE
+# PHYSROUTE     a physical route produced by the rvp planner.
+# ROUTE         the movement of exactly one train, along a specific path, at a specific time
+# TRIP          a sequence of actions performed by the virtual passenger
+
+
 # FIXME
 # route data for the simulation
-my @tr_903_wa_kp = (s_vie, s_fas, s_wab, s_war, s_son, s_swa, s_str, s_hek, s_wol, s_mpo, s_rrh, s_har, s_haf, s_ams, s_ths, s_lpn, s_vos, s_eml, s_mei, s_add, s_dsn, s_dhx, s_kpx);
-my @tr_903_kp_lp = (s_kpx, s_dhx, s_dsn, s_add, s_mei, s_eml, s_vos, s_lpn);
-my @tr_903_kp_em = (s_kpx, s_dhx, s_dsn, s_add, s_mei, s_eml);
-my @tr_u79_kp_me = (s_kpx, s_dhx, s_dsn, s_add, s_mei);
-my @tr_u79_me_kp = (s_mei, s_add, s_dsn, s_dhx, s_kpx);
-my @tr_sb40_vi_dh = (s_vie, s_war, s_hoe, s_dhx);
-my @tr_re_du_d = (s_dhx, s_dap, s_dhb);
-my @tr_re_du_g_d = (s_dhx, "Großenbaum S", s_dap, s_dhb);
 sub rt { # FIXME -- this one calculates 2009-03-22 $_[0]:$_[1]:00 CET
 	return str2time("2010-03-22 $_[0]:$_[1]:00", "CET");
 }
@@ -61,16 +62,16 @@ sub rt { # FIXME -- this one calculates 2009-03-22 $_[0]:$_[1]:00 CET
 # but parts have been removed to make things simpler
 # and parts have been added to construct additional test cases.
 # (s_xxx are constants containing the actual name of the station.)
-my @trips = (
+my @routes = (
 	{
 		line => "902 Duisburg König-Heinrich-Platz (11:49-12:27)",
 		route => [
 			{ stop => "Watereck", time => rt(11,49) },
 			{ stop => s_vie, time => rt(11,50) }, { stop => s_fas, time => rt(11,51) }, { stop => s_wab, time => rt(11,52) },
 			{ stop => s_war, time => rt(11,53) }, { stop => s_son, time => rt(11,54) }, { stop => s_swa, time => rt(11,56) },
-			{ stop => s_str, time => rt(11,57) }, { stop => s_hek, time => rt(11,59) }, { stop => s_wol, time => rt(12,01) },
-			{ stop => s_mpo, time => rt(12,03) }, { stop => s_rrh, time => rt(12,05) }, { stop => s_har, time => rt(12,07) },
-			{ stop => s_haf, time => rt(12,09) }, { stop => s_ams, time => rt(12,10) }, { stop => s_ths, time => rt(12,11) },
+			{ stop => s_str, time => rt(11,57) }, { stop => s_hek, time => rt(11,59) }, { stop => s_wol, time => rt(12, 1) },
+			{ stop => s_mpo, time => rt(12, 3) }, { stop => s_rrh, time => rt(12, 5) }, { stop => s_har, time => rt(12, 7) },
+			{ stop => s_haf, time => rt(12, 9) }, { stop => s_ams, time => rt(12,10) }, { stop => s_ths, time => rt(12,11) },
 			{ stop => s_lpn, time => rt(12,13) }, { stop => s_vos, time => rt(12,15) }, { stop => s_eml, time => rt(12,16) },
 			{ stop => s_mei, time => rt(12,18) }, { stop => s_add, time => rt(12,19) }, { stop => s_dsn, time => rt(12,23) },
 			{ stop => s_dhx, time => rt(12,25) }, { stop => s_kpx, time => rt(12,27) },
@@ -252,11 +253,17 @@ my @trips = (
 );
 # ...test dataset.]
 
+# process dataset: set arrive and depart times even if they are the same or so.
+map { map {
+	$_->{arrive} //= $_->{time};
+	$_->{depart} //= $_->{time};
+} @{$_->{route}} } @routes;
+
 # FIXME
 # data from rvp-planner
 my @dr_mpo_dhx_903 = (s_rrh, s_har, s_haf, s_ams, s_ths, s_lpn, s_vos, s_eml, s_mei, s_add, s_dsn);
 # simulate these.
-my @phys_routes = (
+my @physroutes = (
 	[
 		s_vie, s_fas, s_wab, s_war, s_son, s_swa, s_str, s_hek, s_wol, s_mpo,
 		@dr_mpo_dhx_903, s_dhx, s_dap, s_dhb,
@@ -265,8 +272,115 @@ my @phys_routes = (
 );
 my $starttime = str2time("2010-03-22 12:03:00", "CET");
 
-foreach my $route (@phys_routes) {
+# complete routes
+my @routes_complete;
+
+foreach my $physroute (@physroutes) {
 	print "\n" . "-" x 80 . "\n\n";
-	print "next route: " . join(" - ", @{$route}) . "\n";
+	print "next route: " . join(" - ", @{$physroute}) . "\n";
+
+	# (this big comment should probably be moved elsewhere)
+	# the idea is like this
+	# a virtual passenger (VP) is sent to the source station,
+	# with a plan in her hand that contains a list of stations that she has to
+	# visit in sequence.
+	# at every station, the VP will split up into multiple personalities that
+	# do different things (get off a train, stay on current train, wait for
+	# next one etc)
+	# these things will actually be evaluated in one step, by just adding all
+	# the possibilities, and inserting some space in the middle if taking
+	# the next train will require some minutes to get to a different platform
+	# (to be written)
+
+	# initialize the incomplete route set with the VP at the start node.
+	my @wip = (
+		[
+			{
+				station       => $physroute->[0],
+				time          => $starttime,
+			},
+		],
+	);
+	for (my $station_index = 0; $station_index < @{$physroute} - 1; $station_index++) {
+		# current station (is the same for all WIP trips).
+		my $current_station = $physroute->[$station_index];
+		# next station (also the same).
+		my $next_station = $physroute->[$station_index + 1];
+		@wip = map {
+			# current trip
+			my $trip = $_;
+
+#			print "evaluating trip: " . join(" - ", map { "(" . time2str("%H:%M", $_->{time}, "CET") . ") $_->{station}" } @{$trip}) . "\n";
+
+			# excuse me sir, could you tell me the time
+			my $current_time = $trip->[-1]->{time};
+
+			# how can we get from our current station to that next station?
+#			print "- find out how to get from \"$current_station\" to \"$next_station\"\n";
+
+			# find out all routes that:
+			# 1) contain the current station
+			# 2) contain the next station immediately after that in the route
+			# 3) have their depart time after the current time
+			# XXX current version just has all routes.
+			# XXX future versions will (have to) generate routes on demand,
+			# XXX since all possible routes cannot be kept in memory.
+			# XXX future versions will therefore find out which lines are potential candidates for providing a route,
+			# XXX and they will be asked to produce routes around the current time until enough ("enough" being defined by configuration)
+			# XXX routes have been produced.
+			map {
+				my $route = $_;
+				my $i_curr = firstidx { $_->{stop} eq $current_station } @{$route->{route}};
+				if ($i_curr == -1) { # cond 1
+					();
+				} elsif (!defined($route->{route}->[$i_curr + 1]) or $route->{route}->[$i_curr + 1]->{stop} ne $next_station) { # cond 2
+					();
+				} elsif ($route->{route}->[$i_curr]->{depart} < $current_time) { # cond 3
+					();
+				} else {
+#					print "-- $route->{line}\n";
+					# XXX better internal trip storage.
+					my @xt = @{dclone($trip)};
+					$xt[-1]->{line} = $route->{line};
+					$xt[-1]->{depart} = $route->{route}->[$i_curr]->{depart};
+					[ @xt, {
+						station => $next_station, # XXX
+						arrive => $route->{route}->[$i_curr + 1]->{arrive}, # XXX
+						time => $route->{route}->[$i_curr + 1]->{arrive},
+					} ];
+				}
+			} @routes;
+		} @wip;
+
+#		print "results:\n" . Dumper(@wip);
+#		print "Do you approve\n";
+#		<STDIN>;
+	}
+
+	# print result routes
+	foreach my $route (@wip) {
+#		print Dumper($route);
+		for (my $si = 0; $si < @{$route}; $si++) {
+			if ($si == 0 or $si == @{$route} - 1 or $route->[$si]->{line} ne $route->[$si - 1]->{line}) {
+				if ($si != 0) {
+					printf("%5s %2s  %-30s\n",
+						time2str("%H:%M", $route->[$si]->{arrive}, "CET"),
+						"an", $route->[$si]->{station}
+					);
+				}
+				print "\n";
+				if ($si != @{$route} - 1) {
+					printf("%5s %2s  %-30s  %s\n",
+						time2str("%H:%M", $route->[$si]->{depart}, "CET"),
+						"ab",
+						$route->[$si]->{station},
+						$route->[$si]->{line},
+					);
+				}
+			}
+		}
+		print "\n" . "-" x 40 . "\n";
+#		<STDIN>;
+	}
 }
 
