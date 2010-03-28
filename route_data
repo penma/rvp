@@ -34,7 +34,8 @@ use constant {
 	s_dhb => "D-Hauptbahnhof",           s_obm => "D-Oberbilker Markt/Warschauer Straße",
 	s_els => "D-Ellerstraße",            s_obb => "D-Oberbilk/Philipshalle",
 	s_ksn => "D-Kaiserslauterner Straße",s_dap => "D-Flughafen",
-	s_hoe => "Hoeveler Straße",
+	s_hoe => "Hoeveler Straße",          s_zoo => "Zoo/Uni",
+	s_sws => "Schweizer Straße",         s_cjg => "Carstanjen-Garten",
 };
 
 # TERMS USED IN THIS CODE
@@ -241,6 +242,24 @@ my @routes = (
 			{ stop => s_dhb, arrive => rt(13,56), depart => rt(13,58) },
 		],
 	},
+	{
+		line => "U94 Carstanjen-Garten (13:05-13:09)",
+		route => [
+			{ stop => s_zoo,                      depart => rt(13, 5), },
+			{ stop => s_sws, arrive => rt(13, 7), depart => rt(13, 7), },
+			{ stop => s_cjg, arrive => rt(13, 9),                      },
+		],
+	},
+	{
+		line => "901 König-Heinrich-Platz (13:16-13:24)",
+		route => [
+			{ stop => s_zoo,                      depart => rt(13,16), },
+			{ stop => s_sws, arrive => rt(13,18), depart => rt(13,18), },
+			{ stop => s_cjg, arrive => rt(13,20), depart => rt(13,21), },
+			{ stop => s_dhx, arrive => rt(13,22), depart => rt(13,23), },
+			{ stop => s_kpx, arrive => rt(13,24),                      },
+		],
+	},
 );
 # ...test dataset.]
 
@@ -261,7 +280,8 @@ my @physroutes = (
 	],
 	[ s_vie, s_fas, s_wab, s_war, s_hoe, s_dhx, s_dsn, ],
 );
-@physroutes = ([ s_vie, s_fas, s_wab, s_war, s_hoe ]); # DEBUG
+#@physroutes = ([ s_vie, s_fas, s_wab, s_war, s_hoe ]); # DEBUG
+@physroutes = ([ s_zoo, s_sws, s_cjg, s_dhx, s_dap, s_dhb ]); # DEBUG
 
 # return
 { routes => \@routes, physroutes => \@physroutes, }

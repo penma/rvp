@@ -14,7 +14,7 @@ binmode(STDOUT, ":utf8");
 my $d = do("route_data") or die($@);
 my @routes = @{$d->{routes}};
 my @physroutes = @{$d->{physroutes}};
-my $starttime = str2time("2010-03-22 12:03:00", "CET");
+my $starttime = str2time("2010-03-22 13:02:00", "CET");
 
 sub trip_details {
 	my ($trip) = @_;
