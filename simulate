@@ -271,6 +271,7 @@ my @physroutes = (
 	],
 	[ s_vie, s_fas, s_wab, s_war, s_hoe, s_dhx, s_dsn, ],
 );
+@physroutes = ([ s_vie, s_fas, s_wab, s_war, s_hoe ]); # DEBUG
 my $starttime = str2time("2010-03-22 12:03:00", "CET");
 
 sub trip_details {
@@ -429,23 +430,74 @@ foreach my $physroute (@physroutes) {
 					},
 				};
 			} elsif ($trip->{state}->{state} eq "wait_arrive_train") {
-				# we arrived!
-				# TODO attempt exiting trains, and don't depart if that leads us off-route.
-				{
-					events => [ @{$trip->{events}}, {
-						time    => $nsc,
-						event   => "arrive",
-						station => $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{stop},
-						route   => $trip->{state}->{route},
-					} ],
-					state => {
-						station   => $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{stop},
-						next_time => $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{depart},
-						route     => $trip->{state}->{route},
-						route_pos => $trip->{state}->{route_pos} + 1,
-						state     => "wait_depart_train",
-					},
-				};
+				# we arrived! generate trips for exiting trains and/or staying on train.
+				# TODO only leave a train here if necessary, or determined to be
+				#      an "attractive" choice, defined by some configuration parameter
+				#      and the alternative trains available.
+				#      (though trip overproduction can be defeated by not producing
+				#      any trains to enter in the wait_arrive_station state)
+				my @rt;
+
+				# first add the arrive event to the event list and update state first.
+				$trip->{state}->{route_pos}++;
+				$trip->{state}->{station} = $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos}]->{stop};
+				push(@{$trip->{events}}, {
+					time     => $nsc,
+					event    => "arrive",
+					station  => $trip->{state}->{station},
+					route    => $trip->{state}->{route},
+				});
+
+				# if we arrived at the final stop, get off here and exit!
+				if ($trip->{state}->{station} eq $physroute->[-1]) {
+					push(@{$trip->{events}}, {
+						time     => $nsc,
+						event    => "exit",
+						station  => $trip->{state}->{station},
+						route    => $trip->{state}->{route},
+					}, {
+						time     => $nsc,
+						event    => "vp_exit",
+					});
+					push(@completed_trips, $trip);
+					();
+				} else {
+					# add trip for waiting in train, if the next stop is the next on route
+					# FIXME check if it really is the NEXT on route FIXME
+					if (defined($trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1])
+					and $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{stop} ~~ $physroute) {
+						push(@rt, {
+							events => [ @{$trip->{events}} ],
+							state => {
+								station   => $trip->{state}->{station},
+								next_time => $trip->{state}->{next_time},
+								route     => $trip->{state}->{route},
+								route_pos => $trip->{state}->{route_pos},
+								state     => "wait_depart_train",
+							},
+						});
+					}
+
+					# get off at this station
+					# TODO add "attractiveness" check as described above
+					push(@rt, {
+						events => [ @{$trip->{events}}, {
+							time     => $nsc,
+							event    => "exit",
+							station  => $trip->{state}->{station},
+							route    => $trip->{state}->{route},
+						} ],
+						state => {
+							station   => $trip->{state}->{station},
+							next_time => $nsc,
+							route     => undef,
+							route_pos => undef,
+							state     => "wait_arrive_station",
+						},
+					}) ;# if (rand() < 0.1); # XXX XXX
+
+					@rt;
+				}
 			} else {
 				die("Trip has entered invalid or unknown state $trip->{state}->{state}");
 			}
@@ -456,37 +508,28 @@ foreach my $physroute (@physroutes) {
 		print STDERR "\n";
 	}
 
-=begin comment
-
 	# print result trips
 	foreach my $trip (@completed_trips) {
-#		print Dumper($trip);
-		for (my $si = 0; $si < @{$route}; $si++) {
-			if ($si == 0 or $si == @{$route} - 1 or $route->[$si]->{line} ne $route->[$si - 1]->{line}) {
-				if ($si != 0) {
-					printf("%5s %2s  %-30s\n",
-						time2str("%H:%M", $route->[$si]->{arrive}, "CET"),
-						"an", $route->[$si]->{station}
-					);
-				}
+		for (my $si = 0; $si < @{$trip->{events}}; $si++) {
+			if ($trip->{events}->[$si]->{event} eq "enter") {
+				warn("Next event not DEPART, bullshit ahead") if ($trip->{events}->[$si+1]->{event} ne "depart");
 				print "\n";
-				if ($si != @{$route} - 1) {
-					printf("%5s %2s  %-30s  %s\n",
-						time2str("%H:%M", $route->[$si]->{depart}, "CET"),
-						"ab",
-						$route->[$si]->{station},
-						$route->[$si]->{line},
-					);
-				}
+				printf("%5s %2s  %-30s  %s\n",
+					time2str("%H:%M", $trip->{events}->[$si+1]->{time}, "CET"),
+					"ab",
+					$trip->{events}->[$si]->{station},
+					$trip->{events}->[$si]->{route}->{line},
+				);
+			} elsif ($trip->{events}->[$si]->{event} eq "exit") {
+				warn("Previous event not ARRIVE, bullshit ahead") if ($trip->{events}->[$si-1]->{event} ne "arrive");
+				printf("%5s %2s  %-30s\n",
+					time2str("%H:%M", $trip->{events}->[$si-1]->{time}, "CET"),
+					"an", $trip->{events}->[$si-1]->{station}
+				);
 			}
 		}
 		print "\n" . "-" x 40 . "\n";
 #		<STDIN>;
 	}
-
-=end
-
-=cut
-
 }
 
