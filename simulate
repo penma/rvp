@@ -329,6 +329,17 @@ foreach my $physroute (@physroutes) {
 			# FIXME this will (very likely) break when a station is present on a route
 			#       twice. this can happen (ring lines, drug overdose, ..)
 
+			# XXX oh let's insert some sanity checks here.
+			if (!defined($trip->{state}->{next_time})) {
+				die("Trip " . trip_details($trip) . " -- has NO CURRENT TIME!");
+			}
+			if (!defined($trip->{state}->{station})) {
+				die("Trip " . trip_details($trip) . " -- has NO CURRENT STATION!");
+			}
+			if (!($trip->{state}->{station} ~~ $physroute)) {
+				die("Trip " . trip_details($trip) . " -- ended up off-route");
+			}
+
 			if ($trip->{state}->{state} eq "wait_arrive_station") {
 				my $next_stop = (after { $_ eq $trip->{state}->{station} } @{$physroute})[0];
 				print "what to do now at $trip->{state}->{station}...\n";
@@ -349,9 +360,10 @@ foreach my $physroute (@physroutes) {
 						();
 					} else {
 						({
-							route  => $route,
-							arrive => $route->{route}->[$i_curr]->{arrive},
-							depart => $route->{route}->[$i_curr]->{depart},
+							route     => $route,
+							route_pos => $i_curr,
+							arrive    => $route->{route}->[$i_curr]->{arrive},
+							depart    => $route->{route}->[$i_curr]->{depart},
 						});
 					}
 				} @routes;
@@ -392,12 +404,48 @@ foreach my $physroute (@physroutes) {
 							station   => $trip->{state}->{station},
 							next_time => $pr->{depart},
 							route     => $pr->{route},
-							state     => "wait_depart_station",
+							route_pos => $pr->{route_pos},
+							state     => "wait_depart_train",
 						},
 					});
 				}
 
 				@rt;
+			} elsif ($trip->{state}->{state} eq "wait_depart_train") {
+				# flee with the train that has been entered.
+				{
+					events => [ @{$trip->{events}}, {
+						time    => $nsc,
+						event   => "depart",
+						station => $trip->{state}->{station},
+						route   => $trip->{state}->{route},
+					} ],
+					state => {
+						station   => $trip->{state}->{station},
+						next_time => $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{arrive},
+						route     => $trip->{state}->{route},
+						route_pos => $trip->{state}->{route_pos},
+						state     => "wait_arrive_train",
+					},
+				};
+			} elsif ($trip->{state}->{state} eq "wait_arrive_train") {
+				# we arrived!
+				# TODO attempt exiting trains, and don't depart if that leads us off-route.
+				{
+					events => [ @{$trip->{events}}, {
+						time    => $nsc,
+						event   => "arrive",
+						station => $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{stop},
+						route   => $trip->{state}->{route},
+					} ],
+					state => {
+						station   => $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{stop},
+						next_time => $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{depart},
+						route     => $trip->{state}->{route},
+						route_pos => $trip->{state}->{route_pos} + 1,
+						state     => "wait_depart_train",
+					},
+				};
 			} else {
 				die("Trip has entered invalid or unknown state $trip->{state}->{state}");
 			}
@@ -409,37 +457,6 @@ foreach my $physroute (@physroutes) {
 	}
 
 =begin comment
-
-			# how can we get from our current station to that next station?
-#			print "- find out how to get from \"$current_station\" to \"$next_station\"\n";
-
-			# XXX current version just has all routes.
-			# XXX future versions will (have to) generate routes on demand,
-			# XXX since all possible routes cannot be kept in memory.
-			# XXX future versions will therefore find out which lines are potential candidates for providing a route,
-			# XXX and they will be asked to produce routes around the current time until enough ("enough" being defined by configuration)
-			# XXX routes have been produced.
-			map {
-				my $route = $_;
-					# XXXX preconditions 1-3 have been satisfied, route is a @poss_route
-#					print "-- $route->{line}\n";
-					# XXX better internal trip storage.
-					my @xt = @{dclone($trip)};
-					$xt[-1]->{line} = $route->{line};
-					$xt[-1]->{depart} = $route->{route}->[$i_curr]->{depart};
-					[ @xt, {
-						station => $next_station, # XXX
-						arrive => $route->{route}->[$i_curr + 1]->{arrive}, # XXX
-						time => $route->{route}->[$i_curr + 1]->{arrive},
-					} ];
-				}
-			} @routes;
-		} @wip;
-
-#		print "results:\n" . Dumper(@wip);
-#		print "Do you approve\n";
-#		<STDIN>;
-	}
 
 	# print result trips
 	foreach my $trip (@completed_trips) {
