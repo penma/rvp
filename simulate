@@ -90,6 +90,7 @@ foreach my $physroute (@physroutes) {
 				# 1) contain the current station
 				# 2) contain the next station immediately after that in the route
 				# 3) have their depart time after the current time
+				# 4) we have not just exited a second ago
 				my @poss_routes = map {
 					my $route = $_;
 					my $i_curr = firstidx { $_->{stop} eq $trip->{state}->{station} } @{$route->{route}};
@@ -98,6 +99,8 @@ foreach my $physroute (@physroutes) {
 					} elsif (!defined($route->{route}->[$i_curr + 1]) or $route->{route}->[$i_curr + 1]->{stop} ne $next_stop) { # cond 2
 						();
 					} elsif ($route->{route}->[$i_curr]->{depart} < $nsc) { # cond 3
+						();
+					} elsif (defined($trip->{state}->{prev_route}) and $trip->{state}->{prev_route} == $route) { # cond 4
 						();
 					} else {
 						({
@@ -136,39 +139,23 @@ foreach my $physroute (@physroutes) {
 				foreach my $pr (grep { $_->{arrive} <= $nsc } @poss_routes) {
 					push(@rt, {
 						events => [ @{$trip->{events}}, {
-							time    => $nsc,
-							event   => "enter",
+							time    => $pr->{depart},
+							etime   => $nsc,
+							event   => "depart",
 							station => $trip->{state}->{station},
 							route   => $pr->{route},
 						} ],
 						state => {
 							station   => $trip->{state}->{station},
-							next_time => $pr->{depart},
+							next_time => $pr->{route}->{route}->[$pr->{route_pos} + 1]->{arrive},
 							route     => $pr->{route},
 							route_pos => $pr->{route_pos},
-							state     => "wait_depart_train",
+							state     => "wait_arrive_train",
 						},
 					});
 				}
 
 				@rt;
-			} elsif ($trip->{state}->{state} eq "wait_depart_train") {
-				# flee with the train that has been entered.
-				{
-					events => [ @{$trip->{events}}, {
-						time    => $nsc,
-						event   => "depart",
-						station => $trip->{state}->{station},
-						route   => $trip->{state}->{route},
-					} ],
-					state => {
-						station   => $trip->{state}->{station},
-						next_time => $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{arrive},
-						route     => $trip->{state}->{route},
-						route_pos => $trip->{state}->{route_pos},
-						state     => "wait_arrive_train",
-					},
-				};
 			} elsif ($trip->{state}->{state} eq "wait_arrive_train") {
 				# we arrived! generate trips for exiting trains and/or staying on train.
 				# TODO only leave a train here if necessary, or determined to be
@@ -181,18 +168,12 @@ foreach my $physroute (@physroutes) {
 				# first add the arrive event to the event list and update state first.
 				$trip->{state}->{route_pos}++;
 				$trip->{state}->{station} = $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos}]->{stop};
-				push(@{$trip->{events}}, {
-					time     => $nsc,
-					event    => "arrive",
-					station  => $trip->{state}->{station},
-					route    => $trip->{state}->{route},
-				});
 
 				# if we arrived at the final stop, get off here and exit!
 				if ($trip->{state}->{station} eq $physroute->[-1]) {
 					push(@{$trip->{events}}, {
 						time     => $nsc,
-						event    => "exit",
+						event    => "arrive",
 						station  => $trip->{state}->{station},
 						route    => $trip->{state}->{route},
 					}, {
@@ -210,10 +191,10 @@ foreach my $physroute (@physroutes) {
 							events => [ @{$trip->{events}} ],
 							state => {
 								station   => $trip->{state}->{station},
-								next_time => $trip->{state}->{next_time},
+								next_time => $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{arrive},
 								route     => $trip->{state}->{route},
 								route_pos => $trip->{state}->{route_pos},
-								state     => "wait_depart_train",
+								state     => "wait_arrive_train",
 							},
 						});
 					}
@@ -223,7 +204,7 @@ foreach my $physroute (@physroutes) {
 					push(@rt, {
 						events => [ @{$trip->{events}}, {
 							time     => $nsc,
-							event    => "exit",
+							event    => "arrive",
 							station  => $trip->{state}->{station},
 							route    => $trip->{state}->{route},
 						} ],
@@ -232,6 +213,7 @@ foreach my $physroute (@physroutes) {
 							next_time => $nsc,
 							route     => undef,
 							route_pos => undef,
+							prev_route=> $trip->{state}->{route},
 							state     => "wait_arrive_station",
 						},
 					}) ;# if (rand() < 0.1); # XXX XXX
@@ -251,20 +233,18 @@ foreach my $physroute (@physroutes) {
 	# print result trips
 	foreach my $trip (@completed_trips) {
 		for (my $si = 0; $si < @{$trip->{events}}; $si++) {
-			if ($trip->{events}->[$si]->{event} eq "enter") {
-				warn("Next event not DEPART, bullshit ahead") if ($trip->{events}->[$si+1]->{event} ne "depart");
+			if ($trip->{events}->[$si]->{event} eq "depart") {
 				print "\n";
 				printf("%5s %2s  %-30s  %s\n",
-					time2str("%H:%M", $trip->{events}->[$si+1]->{time}, "CET"),
+					time2str("%H:%M", $trip->{events}->[$si]->{time}, "CET"),
 					"ab",
 					$trip->{events}->[$si]->{station},
 					$trip->{events}->[$si]->{route}->{line},
 				);
-			} elsif ($trip->{events}->[$si]->{event} eq "exit") {
-				warn("Previous event not ARRIVE, bullshit ahead") if ($trip->{events}->[$si-1]->{event} ne "arrive");
+			} elsif ($trip->{events}->[$si]->{event} eq "arrive") {
 				printf("%5s %2s  %-30s\n",
-					time2str("%H:%M", $trip->{events}->[$si-1]->{time}, "CET"),
-					"an", $trip->{events}->[$si-1]->{station}
+					time2str("%H:%M", $trip->{events}->[$si]->{time}, "CET"),
+					"an", $trip->{events}->[$si]->{station}
 				);
 			}
 		}
