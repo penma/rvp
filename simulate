@@ -9,7 +9,9 @@ use Date::Parse;
 use List::Util qw(min);
 use List::MoreUtils qw(firstidx after);
 
-my $d = do("route_data");
+binmode(STDOUT, ":utf8");
+
+my $d = do("route_data") or die($@);
 my @routes = @{$d->{routes}};
 my @physroutes = @{$d->{physroutes}};
 my $starttime = str2time("2010-03-22 12:03:00", "CET");

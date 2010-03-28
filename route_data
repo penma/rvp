@@ -1,3 +1,5 @@
+use utf8;
+
 # these are shorthands for many stations. useful since the names are hardcoded below. (for now)
 use constant {
 	s_vie => "Vierlinden",               s_fas => "Fasanenstraße",
