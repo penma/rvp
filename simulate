@@ -141,11 +141,11 @@ foreach my $physroute (@physroutes) {
 				foreach my $pr (grep { $_->{arrive} <= $nsc } @poss_routes) {
 					push(@rt, {
 						events => [ @{$trip->{events}}, {
-							time    => $pr->{depart},
-							etime   => $nsc,
-							event   => "depart",
-							station => $trip->{state}->{station},
-							route   => $pr->{route},
+							time       => $pr->{depart},
+							enter_time => $nsc,
+							event      => "depart",
+							station    => $trip->{state}->{station},
+							route      => $pr->{route},
 						} ],
 						state => {
 							station   => $trip->{state}->{station},
