@@ -69,9 +69,6 @@ foreach my $physroute (@physroutes) {
 
 			print STDERR "evaluating trip " . trip_details($trip) . "\n";
 
-			# FIXME this will (very likely) break when a station is present on a route
-			#       twice. this can happen (ring lines, drug overdose, ..)
-
 			# XXX oh let's insert some sanity checks here.
 			if (!defined($trip->{state}->{next_time})) {
 				die("Trip " . trip_details($trip) . " -- has NO CURRENT TIME!");
@@ -186,7 +183,6 @@ foreach my $physroute (@physroutes) {
 					();
 				} else {
 					# add trip for waiting in train, if the next stop is the next on route
-					# FIXME check if it really is the NEXT on route FIXME
 					if (defined($trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1])
 					and $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{stop} ~~ $physroute) {
 						push(@rt, {
@@ -251,7 +247,6 @@ foreach my $physroute (@physroutes) {
 			}
 		}
 		print "\n" . "-" x 40 . "\n";
-#		<STDIN>;
 	}
 }
 
