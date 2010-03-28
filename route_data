@@ -1,0 +1,266 @@
+# these are shorthands for many stations. useful since the names are hardcoded below. (for now)
+use constant {
+	s_vie => "Vierlinden",               s_fas => "Fasanenstraße",
+	s_wab => "Walsum Betriebshof",       s_war => "Walsum Rathaus",
+	s_son => "Sonnenstraße",             s_swa => "Schwan",
+	s_str => "Striepweg",                s_hek => "Heckmann",
+	s_wol => "Wolfstraße",               s_mpo => "Marxloh Pollmann",
+	s_rrh => "Rhein-Ruhr-Halle",         s_har => "Hamborn Rathaus",
+	s_haf => "Hamborn Feuerwache",       s_ams => "Amsterdamer Straße",
+	s_ths => "Theodor-Heuss-Straße",     s_lpn => "Landschaftspark Nord",
+	s_vos => "Voßstraße",                s_eml => "Emilstraße",
+	s_mei => "Meiderich Bahnhof",        s_add => "Auf dem Damm",
+	s_dsn => "Duissern",                 s_dhx => "Hauptbahnhof",
+	s_kpx => "König-Heinrich-Platz",     s_stg => "Steinsche Gasse",
+	s_pln => "Platanenhof",              s_mus => "Musfeldstraße",
+	s_kms => "Kremerstraße",             s_kjs => "Karl-Jarres-Straße",
+	s_grw => "Grunewald",                s_gbt => "Grunewald Betriebshof",
+	s_kts => "Kulturstraße",             s_isk => "Im Schlenk",
+	s_nef => "Neuer Friedhof",           s_mns => "Münchener Straße",
+	s_stb => "Sittardsberg",             s_mlk => "Mühlenkamp",
+	s_sak => "St.-Anna-Krankenhaus",     s_keb => "Kesselsberg",
+	s_fht => "D-Froschenteich",          s_wtl => "D-Wittlaer",
+	s_ama => "D-Am Mühlenacker",         s_ksa => "D-Kalkumer Schlossallee",
+	s_klp => "D-Klemensplatz",           s_kis => "D-Kittelbachstraße",
+	s_ats => "D-Alte Landstraße",        s_fls => "D-Flughafenstraße",
+	s_fgp => "D-Freiligrathplatz",       s_sks => "D-Messe Ost/Stockumer Kirchstraße",
+	s_nrd => "D-Nordpark/Aquazoo",       s_rep => "D-Reeser Platz",
+	s_teo => "D-Theodor-Heuss-Brücke",   s_gop => "D-Golzheimer Platz",
+	s_ken => "D-Kennedydamm",            s_kvs => "D-Victoriaplatz/Klever Straße",
+	s_nos => "D-Nordstraße",             s_hhx => "D-Heinrich-Heine-Allee",
+	s_sts => "D-Steinstraße/Königsallee",s_oss => "D-Oststraße",
+	s_dhb => "D-Hauptbahnhof",           s_obm => "D-Oberbilker Markt/Warschauer Straße",
+	s_els => "D-Ellerstraße",            s_obb => "D-Oberbilk/Philipshalle",
+	s_ksn => "D-Kaiserslauterner Straße",s_dap => "D-Flughafen",
+	s_hoe => "Hoeveler Straße",
+};
+
+# TERMS USED IN THIS CODE
+# PHYSROUTE     a physical route produced by the rvp planner.
+# ROUTE         the movement of exactly one train, along a specific path, at a specific time
+# TRIP          a sequence of actions performed by the virtual passenger
+
+
+# FIXME
+# route data for the simulation
+sub rt { # FIXME -- this one calculates 2009-03-22 $_[0]:$_[1]:00 CET
+	return str2time("2010-03-22 $_[0]:$_[1]:00", "CET");
+}
+# [test dataset
+# resembles actual schedules
+# but parts have been removed to make things simpler
+# and parts have been added to construct additional test cases.
+# (s_xxx are constants containing the actual name of the station.)
+my @routes = (
+	{
+		line => "902 Duisburg König-Heinrich-Platz (11:49-12:27)",
+		route => [
+			{ stop => "Watereck", time => rt(11,49) },
+			{ stop => s_vie, time => rt(11,50) }, { stop => s_fas, time => rt(11,51) }, { stop => s_wab, time => rt(11,52) },
+			{ stop => s_war, time => rt(11,53) }, { stop => s_son, time => rt(11,54) }, { stop => s_swa, time => rt(11,56) },
+			{ stop => s_str, time => rt(11,57) }, { stop => s_hek, time => rt(11,59) }, { stop => s_wol, time => rt(12, 1) },
+			{ stop => s_mpo, time => rt(12, 3) }, { stop => s_rrh, time => rt(12, 5) }, { stop => s_har, time => rt(12, 7) },
+			{ stop => s_haf, time => rt(12, 9) }, { stop => s_ams, time => rt(12,10) }, { stop => s_ths, time => rt(12,11) },
+			{ stop => s_lpn, time => rt(12,13) }, { stop => s_vos, time => rt(12,15) }, { stop => s_eml, time => rt(12,16) },
+			{ stop => s_mei, time => rt(12,18) }, { stop => s_add, time => rt(12,19) }, { stop => s_dsn, time => rt(12,23) },
+			{ stop => s_dhx, time => rt(12,25) }, { stop => s_kpx, time => rt(12,27) },
+		],
+	},
+	{
+		line => "902 Duisburg König-Heinrich-Platz (11:56-12:34)",
+		route => [
+			{ stop => "Watereck", time => rt(11,56) },
+			{ stop => s_vie, time => rt(11,57) }, { stop => s_fas, time => rt(11,58) }, { stop => s_wab, time => rt(11,59) },
+			{ stop => s_war, time => rt(12, 0) }, { stop => s_son, time => rt(12, 1) }, { stop => s_swa, time => rt(12, 3) },
+			{ stop => s_str, time => rt(12, 4) }, { stop => s_hek, time => rt(12, 6) }, { stop => s_wol, time => rt(12, 8) },
+			{ stop => s_mpo, time => rt(12,10) }, { stop => s_rrh, time => rt(12,12) }, { stop => s_har, time => rt(12,14) },
+			{ stop => s_haf, time => rt(12,16) }, { stop => s_ams, time => rt(12,17) }, { stop => s_ths, time => rt(12,18) },
+			{ stop => s_lpn, time => rt(12,20) }, { stop => s_vos, time => rt(12,22) }, { stop => s_eml, time => rt(12,23) },
+			{ stop => s_mei, time => rt(12,25) }, { stop => s_add, time => rt(12,26) }, { stop => s_dsn, time => rt(12,30) },
+			{ stop => s_dhx, time => rt(12,32) }, { stop => s_kpx, time => rt(12,34) },
+		],
+	},
+	{
+		line => "902 Duisburg König-Heinrich-Platz (12:04-12:42)",
+		route => [
+			{ stop => "Watereck", time => rt(12, 4) },
+			{ stop => s_vie, time => rt(12, 5) }, { stop => s_fas, time => rt(12, 6) }, { stop => s_wab, time => rt(12, 7) },
+			{ stop => s_war, time => rt(12, 8) }, { stop => s_son, time => rt(12, 9) }, { stop => s_swa, time => rt(12,11) },
+			{ stop => s_str, time => rt(12,12) }, { stop => s_hek, time => rt(12,14) }, { stop => s_wol, time => rt(12,16) },
+			{ stop => s_mpo, time => rt(12,18) }, { stop => s_rrh, time => rt(12,20) }, { stop => s_har, time => rt(12,22) },
+			{ stop => s_haf, time => rt(12,24) }, { stop => s_ams, time => rt(12,25) }, { stop => s_ths, time => rt(12,26) },
+			{ stop => s_lpn, time => rt(12,28) }, { stop => s_vos, time => rt(12,30) }, { stop => s_eml, time => rt(12,31) },
+			{ stop => s_mei, time => rt(12,33) }, { stop => s_add, time => rt(12,34) }, { stop => s_dsn, time => rt(12,39) },
+			{ stop => s_dhx, time => rt(12,40) }, { stop => s_kpx, time => rt(12,42) },
+		],
+	},
+	{
+		line => "902 Duisburg König-Heinrich-Platz (12:11-12:49)",
+		route => [
+			{ stop => "Watereck", time => rt(12,11) },
+			{ stop => s_vie, time => rt(12,12) }, { stop => s_fas, time => rt(12,13) }, { stop => s_wab, time => rt(12,14) },
+			{ stop => s_war, time => rt(12,15) }, { stop => s_son, time => rt(12,16) }, { stop => s_swa, time => rt(12,18) },
+			{ stop => s_str, time => rt(12,19) }, { stop => s_hek, time => rt(12,21) }, { stop => s_wol, time => rt(12,23) },
+			{ stop => s_mpo, time => rt(12,25) }, { stop => s_rrh, time => rt(12,27) }, { stop => s_har, time => rt(12,29) },
+			{ stop => s_haf, time => rt(12,31) }, { stop => s_ams, time => rt(12,32) }, { stop => s_ths, time => rt(12,33) },
+			{ stop => s_lpn, time => rt(12,35) }, { stop => s_vos, time => rt(12,37) }, { stop => s_eml, time => rt(12,38) },
+			{ stop => s_mei, time => rt(12,40) }, { stop => s_add, time => rt(12,41) }, { stop => s_dsn, time => rt(12,45) },
+			{ stop => s_dhx, time => rt(12,47) }, { stop => s_kpx, time => rt(12,49) },
+		],
+	},
+	{
+		line => "U93 Duisburg Landschaftspark Nord (12:05-12:19)",
+		route => [
+			{ stop => s_kpx, time => rt(12, 5) }, { stop => s_dhx, time => rt(12, 7) }, { stop => s_dsn, time => rt(12, 9) },
+			{ stop => s_add, time => rt(12,12) }, { stop => s_mei, time => rt(12,13) }, { stop => s_eml, time => rt(12,16) },
+			{ stop => s_vos, time => rt(12,17) }, { stop => s_lpn, time => rt(12,19) },
+		],
+	},
+	{
+		line => "U93 Duisburg Landschaftspark Nord (12:12-12:26)",
+		route => [
+			{ stop => s_kpx, time => rt(12,12) }, { stop => s_dhx, time => rt(12,14) }, { stop => s_dsn, time => rt(12,16) },
+			{ stop => s_add, time => rt(12,19) }, { stop => s_mei, time => rt(12,20) }, { stop => s_eml, time => rt(12,23) },
+			{ stop => s_vos, time => rt(12,24) }, { stop => s_lpn, time => rt(12,26) },
+		],
+	},
+	{
+		line => "U93 Duisburg Emilstraße (12:20-12:31)",
+		route => [
+			{ stop => s_kpx, time => rt(12,20) }, { stop => s_dhx, time => rt(12,22) }, { stop => s_dsn, time => rt(12,24) },
+			{ stop => s_add, time => rt(12,27) }, { stop => s_mei, time => rt(12,28) }, { stop => s_eml, time => rt(12,31) },
+		],
+	},
+	{
+		line => "U93 Duisburg Emilstraße (12:27-12:35)",
+		route => [
+			{ stop => s_kpx, time => rt(12,27) }, { stop => s_dhx, time => rt(12,29) }, { stop => s_dsn, time => rt(12,31) },
+			{ stop => s_add, time => rt(12,34) }, { stop => s_mei, time => rt(12,35) }, { stop => s_eml, time => rt(12,38) },
+		],
+	},
+	{
+		line => "U93 Duisburg Emilstraße (12:35-12:46)",
+		route => [
+			{ stop => s_kpx, time => rt(12,35) }, { stop => s_dhx, time => rt(12,37) }, { stop => s_dsn, time => rt(12,39) },
+			{ stop => s_add, time => rt(12,42) }, { stop => s_mei, time => rt(12,43) }, { stop => s_eml, time => rt(12,46) },
+		],
+	},
+	{
+		line => "U79 Duisburg Duissern (12:04-12:08)",
+		route => [
+			{ stop => s_kpx, time => rt(12, 4) }, { stop => s_dhx, time => rt(12, 6) }, { stop => s_dsn, time => rt(12, 8) },
+		],
+	},
+	{
+		line => "U79 Duisburg Meiderich (12:19-12:27)",
+		route => [
+			{ stop => s_kpx, time => rt(12,19) }, { stop => s_dhx, time => rt(12,21) }, { stop => s_dsn, time => rt(12,23) },
+			{ stop => s_add, time => rt(12,26) }, { stop => s_mei, time => rt(12,27) },
+		],
+	},
+	{
+		line => "U79 Duisburg Duissern (12:34-12:38)",
+		route => [
+			{ stop => s_kpx, time => rt(12,34) }, { stop => s_dhx, time => rt(12,36) }, { stop => s_dsn, time => rt(12,38) },
+		],
+	},
+	{
+		line => "U79 Duisburg Meiderich (12:49-12:57)",
+		route => [
+			{ stop => s_kpx, time => rt(12,49) }, { stop => s_dhx, time => rt(12,51) }, { stop => s_dsn, time => rt(12,53) },
+			{ stop => s_add, time => rt(12,56) }, { stop => s_mei, time => rt(12,57) },
+		],
+	},
+	{
+		line => "U79 Duisburg König-Heinrich-Platz (12:17-12:25)",
+		route => [
+			{ stop => s_mei, time => rt(12,17) }, { stop => s_add, time => rt(12,18) }, { stop => s_dsn, time => rt(12,22) },
+			{ stop => s_dhx, time => rt(12,23) }, { stop => s_kpx, time => rt(12,25) },
+		],
+	},
+	{
+		line => "U79 Duisburg König-Heinrich-Platz (12:32-12:40)",
+		route => [
+			{ stop => s_mei, time => rt(12,32) }, { stop => s_add, time => rt(12,33) }, { stop => s_dsn, time => rt(12,37) },
+			{ stop => s_dhx, time => rt(12,38) }, { stop => s_kpx, time => rt(12,40) },
+		],
+	},
+	{
+		line => "U79 Duisburg König-Heinrich-Platz (12:47-12:55)",
+		route => [
+			{ stop => s_mei, time => rt(12,47) }, { stop => s_add, time => rt(12,48) }, { stop => s_dsn, time => rt(12,52) },
+			{ stop => s_dhx, time => rt(12,53) }, { stop => s_kpx, time => rt(12,55) },
+		],
+	},
+	{
+		line => "SB40 Duisburg Hauptbahnhof (12:05-12:23)",
+		route => [
+			{ stop => s_vie, time => rt(12, 5) }, { stop => s_war, time => rt(12, 9) },
+			{ stop => s_hoe, time => rt(12,10) }, { stop => s_dhx, time => rt(12,23) },
+		],
+	},
+	{
+		line => "SB40 Duisburg Hauptbahnhof (13:05-13:23)",
+		route => [
+			{ stop => s_vie, time => rt(13, 5) }, { stop => s_war, time => rt(13, 9) },
+			{ stop => s_hoe, time => rt(13,10) }, { stop => s_dhx, time => rt(13,23) },
+		],
+	},
+	{
+		line => "RE1 Düsseldorf Hauptbahnhof (12:21-12:38)",
+		route => [
+			{ stop => s_dhx, arrive => rt(12,21), depart => rt(12,24) },
+			{ stop => s_dap, arrive => rt(12,31), depart => rt(12,32) },
+			{ stop => s_dhb, arrive => rt(12,38), depart => rt(12,40) },
+		],
+	},
+	{
+		line => "RE1 Düsseldorf Hauptbahnhof (13:21-13:38)",
+		route => [
+			{ stop => s_dhx, arrive => rt(13,21), depart => rt(13,24) },
+			{ stop => s_dap, arrive => rt(13,31), depart => rt(13,32) },
+			{ stop => s_dhb, arrive => rt(13,38), depart => rt(13,40) },
+		],
+	},
+	{
+		line => "RE5 Düsseldorf Hauptbahnhof (12:40-12:56)",
+		route => [
+			{ stop => s_dhx, arrive => rt(12,40), depart => rt(12,42) },
+			{ stop => "Großenbaum S", time => rt(12,55) },
+			{ stop => s_dap, arrive => rt(12,51), depart => rt(12,51) },
+			{ stop => s_dhb, arrive => rt(12,56), depart => rt(12,58) },
+		],
+	},
+	{
+		line => "RE5 Düsseldorf Hauptbahnhof (13:40-13:56)",
+		route => [
+			{ stop => s_dhx, arrive => rt(13,40), depart => rt(13,42) },
+			{ stop => s_dap, arrive => rt(13,51), depart => rt(13,51) },
+			{ stop => s_dhb, arrive => rt(13,56), depart => rt(13,58) },
+		],
+	},
+);
+# ...test dataset.]
+
+# process dataset: set arrive and depart times even if they are the same or so.
+map { map {
+	$_->{arrive} //= $_->{time};
+	$_->{depart} //= $_->{time};
+} @{$_->{route}} } @routes;
+
+# FIXME
+# data from rvp-planner
+my @dr_mpo_dhx_903 = (s_rrh, s_har, s_haf, s_ams, s_ths, s_lpn, s_vos, s_eml, s_mei, s_add, s_dsn);
+# simulate these.
+my @physroutes = (
+	[
+		s_vie, s_fas, s_wab, s_war, s_son, s_swa, s_str, s_hek, s_wol, s_mpo,
+		@dr_mpo_dhx_903, s_dhx, s_dap, s_dhb,
+	],
+	[ s_vie, s_fas, s_wab, s_war, s_hoe, s_dhx, s_dsn, ],
+);
+@physroutes = ([ s_vie, s_fas, s_wab, s_war, s_hoe ]); # DEBUG
+
+# return
+{ routes => \@routes, physroutes => \@physroutes, }
+
