@@ -318,13 +318,13 @@ foreach my $physroute (@physroutes) {
 	while (@trips) {
 		# next simulation point-in-time: smallest NSC
 		my $nsc = min map { $_->{state}->{next_time} } @trips;
-		print "\n\nsimulation time: " . time2str("%H:%M", $nsc, "CET") . "\n";
+		print STDERR "\n\nsimulation time: " . time2str("%H:%M", $nsc, "CET") . "\n";
 
 		# process all trips with that NSC.
 		@trips = ((grep { $_->{state}->{next_time} != $nsc } @trips), map {
 			my $trip = $_;
 
-			print "evaluating trip " . trip_details($trip) . "\n";
+			print STDERR "evaluating trip " . trip_details($trip) . "\n";
 
 			# FIXME this will (very likely) break when a station is present on a route
 			#       twice. this can happen (ring lines, drug overdose, ..)
@@ -342,7 +342,7 @@ foreach my $physroute (@physroutes) {
 
 			if ($trip->{state}->{state} eq "wait_arrive_station") {
 				my $next_stop = (after { $_ eq $trip->{state}->{station} } @{$physroute})[0];
-				print "what to do now at $trip->{state}->{station}...\n";
+				print STDERR "what to do now at $trip->{state}->{station}...\n";
 
 				# XXX here, ask the on-demand route generator.
 				# find out all routes that:
@@ -368,10 +368,10 @@ foreach my $physroute (@physroutes) {
 					}
 				} @routes;
 
-				print "* stay around and wait for one of these trains?\n";
-				print "  - $_->{route}->{line} (arrives " . time2str("%H:%M", $_->{arrive}) . ")\n" foreach grep { $_->{arrive} > $nsc } @poss_routes;
-				print "* enter one of these wonderful trains to get to $next_stop?\n";
-				print "  - $_->{route}->{line} (departs " . time2str("%H:%M", $_->{depart}) . ")\n" foreach grep { $_->{arrive} <= $nsc } @poss_routes;
+				print STDERR "* stay around and wait for one of these trains?\n";
+				print STDERR "  - $_->{route}->{line} (arrives " . time2str("%H:%M", $_->{arrive}) . ")\n" foreach grep { $_->{arrive} > $nsc } @poss_routes;
+				print STDERR "* enter one of these wonderful trains to get to $next_stop?\n";
+				print STDERR "  - $_->{route}->{line} (departs " . time2str("%H:%M", $_->{depart}) . ")\n" foreach grep { $_->{arrive} <= $nsc } @poss_routes;
 
 				# let's generate additional trips for the two possibilities.
 				# note that the trip data is NOT deep cloned. this is intentional.
@@ -451,9 +451,9 @@ foreach my $physroute (@physroutes) {
 			}
 		} grep { $_->{state}->{next_time} == $nsc } @trips);
 
-		print "Trips:\n";
-		print "* " . trip_details($_) . "\n" foreach (@trips);
-		print "\n";
+		print STDERR "Trips:\n";
+		print STDERR "* " . trip_details($_) . "\n" foreach (@trips);
+		print STDERR "\n";
 	}
 
 =begin comment
