@@ -65,6 +65,29 @@ sub rtcompletead {
 	$nr;
 }
 
+# add (or subtract) a time from all times in a route.
+# useful for being able to provide kind of a "base time" for routes, by
+# stating "all following times are relative to 11:52".
+sub rtaddtime {
+	my ($t_off, $rt) = @_;
+	my $nr = dclone($rt);
+	map {
+		$_->{arrive} += $t_off;
+		$_->{depart} += $t_off;
+	} @{$nr->{route}};
+	$nr;
+}
+
+# generate a sequence of static routes in an interval.
+sub rtintvstatic {
+	my ($t_start, $t_iv, $t_lastinc, $rt) = @_;
+	my @r;
+	for (my $t = $t_start; $t <= $t_lastinc; $t += $t_iv) {
+		push(@r, rtaddtime($t, $rt));
+	}
+	@r;
+}
+
 # [test dataset
 # resembles actual schedules
 # but parts have been removed to make things simpler
@@ -189,32 +212,22 @@ my @routes = (
 			{ stop => s_vie, time => rt(13, 5) }, { stop => s_war, time => rt(13, 9) },
 			{ stop => s_hoe, time => rt(13,10) }, { stop => s_dhx, time => rt(13,23) },
 		],
-	}, { line => "RE1 Düsseldorf Hauptbahnhof (12:21-12:38)",
+	},
+	rtintvstatic(rt( 5,21), 60*60, rt(23,21), rtaddtime(-rt(12,21), {
+		line => "RE1 Düsseldorf Hauptbahnhof",
 		route => [
 			{ stop => s_dhx, arrive => rt(12,21), depart => rt(12,24) },
 			{ stop => s_dap, arrive => rt(12,31), depart => rt(12,32) },
 			{ stop => s_dhb, arrive => rt(12,38), depart => rt(12,40) },
-		],
-	}, { line => "RE1 Düsseldorf Hauptbahnhof (13:21-13:38)",
-		route => [
-			{ stop => s_dhx, arrive => rt(13,21), depart => rt(13,24) },
-			{ stop => s_dap, arrive => rt(13,31), depart => rt(13,32) },
-			{ stop => s_dhb, arrive => rt(13,38), depart => rt(13,40) },
-		],
-	}, { line => "RE5 Düsseldorf Hauptbahnhof (12:40-12:56)",
+		], })),
+	rtintvstatic(rt( 5,40), 60*60, rt(20,40), rtaddtime(-rt(12,40), {
+		line => "RE5 Düsseldorf Hauptbahnhof",
 		route => [
 			{ stop => s_dhx, arrive => rt(12,40), depart => rt(12,42) },
-			{ stop => "Großenbaum S", time => rt(12,55) },
 			{ stop => s_dap, arrive => rt(12,51), depart => rt(12,51) },
 			{ stop => s_dhb, arrive => rt(12,56), depart => rt(12,58) },
-		],
-	}, { line => "RE5 Düsseldorf Hauptbahnhof (13:40-13:56)",
-		route => [
-			{ stop => s_dhx, arrive => rt(13,40), depart => rt(13,42) },
-			{ stop => s_dap, arrive => rt(13,51), depart => rt(13,51) },
-			{ stop => s_dhb, arrive => rt(13,56), depart => rt(13,58) },
-		],
-	}, { line => "U94 Carstanjen-Garten (13:05-13:09)",
+		], })),
+	{ line => "U94 Carstanjen-Garten (13:05-13:09)",
 		route => [
 			{ stop => s_zoo,                      depart => rt(13, 5), },
 			{ stop => s_sws, arrive => rt(13, 7), depart => rt(13, 7), },
