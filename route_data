@@ -1,6 +1,8 @@
 # vim:ft=perl
 use utf8;
 
+use Storable qw(dclone);
+
 # these are shorthands for many stations. useful since the names are hardcoded below. (for now)
 use constant {
 	s_vie => "Vierlinden",               s_fas => "Fasanenstraße",
@@ -50,6 +52,19 @@ use constant {
 sub rt { # FIXME -- this one calculates 2009-03-22 $_[0]:$_[1]:00 CET
 	return str2time("2010-03-22 $_[0]:$_[1]:00", "CET");
 }
+
+# fill in complete arrive/depart information (where only "time" has been provided).
+# (might get removed or replaced by something better in the future)
+sub rtcompletead {
+	my ($rt) = @_;
+	my $nr = dclone($rt);
+	map {
+		$_->{arrive} //= $_->{time};
+		$_->{depart} //= $_->{time};
+	} @{$nr->{route}};
+	$nr;
+}
+
 # [test dataset
 # resembles actual schedules
 # but parts have been removed to make things simpler
@@ -218,10 +233,7 @@ my @routes = (
 # ...test dataset.]
 
 # process dataset: set arrive and depart times even if they are the same or so.
-map { map {
-	$_->{arrive} //= $_->{time};
-	$_->{depart} //= $_->{time};
-} @{$_->{route}} } @routes;
+@routes = map { rtcompletead($_) } @routes;
 
 # FIXME
 # data from rvp-planner
