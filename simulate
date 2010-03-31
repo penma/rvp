@@ -4,27 +4,50 @@ use warnings;
 use 5.010;
 
 use Data::Dumper;
-use Date::Format;
-use Date::Parse;
+use RVP::Time;
 use List::Util qw(min);
-use List::MoreUtils qw(firstidx after);
+use List::MoreUtils qw(firstidx after indexes);
 
 binmode(STDOUT, ":utf8");
 
 my $d = do("route_data") or die($@);
 my @routes = @{$d->{routes}};
 my @physroutes = @{$d->{physroutes}};
-my $starttime = str2time("2010-03-22 13:02:00", "CET");
+my @routegens = @{$d->{routegens}};
+my $starttime = isotr_2ts("2010-03-22 13:02:00", "context");
+
+# generate routes from {from} to {to} departing after or at {time}.
+sub routegen_4segment {
+	my %args = @_;
+
+	# select routegens to be considered,
+	# based on the physroute they will provide
+	my @possible_routegens = grep {
+		my $rg = $_;
+		my $i_from = firstidx { $_->{station} eq $args{from} } @{$rg->{stations}};
+		$i_from != -1
+		and $i_from != @{$rg->{stations}} - 1
+		and $rg->{stations}->[$i_from + 1]->{station} eq $args{to};
+	} @routegens;
+
+	# check
+	if (!@possible_routegens) {
+		die("There is no route generator for $args{from} -> $args{to} - this shouldn't be happening. Dying");
+	}
+
+	# 
+	print "routegens: \n" . join("\n", map { "- $_->{line}" } @possible_routegens) . "\n";
+}
 
 sub trip_details {
 	my ($trip) = @_;
 	sprintf("((%s) %s %s %s): %s",
-		time2str("%H:%M", $trip->{state}->{next_time}, "CET"),
+		ts_2datetime($trip->{state}->{next_time}, "context")->strftime("%H:%M"),
 		$trip->{state}->{state},
 		$trip->{state}->{station},
 		$trip->{state}->{route} ? $trip->{state}->{route}->{line} : "-",
 		join(" - ", map { sprintf("(%s) %s %s",
-			time2str("%H:%M", $_->{time}, "CET"),
+			ts_2datetime($_->{time}, "context")->strftime("%H:%M"),
 			$_->{event},
 			$_->{station}
 		) } @{$trip->{events}}),
@@ -61,7 +84,7 @@ foreach my $physroute (@physroutes) {
 	while (@trips) {
 		# next simulation point-in-time: smallest NSC
 		my $nsc = min map { $_->{state}->{next_time} } @trips;
-		print STDERR "\n\nsimulation time: " . time2str("%H:%M", $nsc, "CET") . "\n";
+		print STDERR "\n\nsimulation time: " . ts_2datetime($nsc, "context")->strftime("%H:%M") . "\n";
 
 		# process all trips with that NSC.
 		@trips = ((grep { $_->{state}->{next_time} != $nsc } @trips), map {
@@ -90,6 +113,7 @@ foreach my $physroute (@physroutes) {
 				# 2) contain the next station immediately after that in the route
 				# 3) have their depart time after the current time
 				# 4) we have not just exited a second ago
+				routegen_4segment(from => $trip->{state}->{station}, to => $next_stop, time => $nsc);
 				my @poss_routes = map {
 					my $route = $_;
 					my $i_curr = firstidx { $_->{stop} eq $trip->{state}->{station} } @{$route->{route}};
@@ -112,9 +136,9 @@ foreach my $physroute (@physroutes) {
 				} @routes;
 
 				print STDERR "* stay around and wait for one of these trains?\n";
-				print STDERR "  - $_->{route}->{line} (arrives " . time2str("%H:%M", $_->{arrive}) . ")\n" foreach grep { $_->{arrive} > $nsc } @poss_routes;
+				print STDERR "  - $_->{route}->{line} (arrives " . ts_2datetime($_->{arrive}, "context")->strftime("%H:%M") . ")\n" foreach grep { $_->{arrive} > $nsc } @poss_routes;
 				print STDERR "* enter one of these wonderful trains to get to $next_stop?\n";
-				print STDERR "  - $_->{route}->{line} (departs " . time2str("%H:%M", $_->{depart}) . ")\n" foreach grep { $_->{arrive} <= $nsc } @poss_routes;
+				print STDERR "  - $_->{route}->{line} (departs " . ts_2datetime($_->{depart}, "context")->strftime("%H:%M") . ")\n" foreach grep { $_->{arrive} <= $nsc } @poss_routes;
 
 				# let's generate additional trips for the two possibilities.
 				# note that the trip data is NOT deep cloned. this is intentional.
@@ -234,19 +258,19 @@ foreach my $physroute (@physroutes) {
 			if ($trip->{events}->[$si]->{event} eq "depart") {
 				print "\n";
 				printf("%5s %2s  %-30s  %s\n",
-					time2str("%H:%M", $trip->{events}->[$si]->{time}, "CET"),
+					ts_2datetime($trip->{events}->[$si]->{time}, "context")->strftime("%H:%M"),
 					"ab",
 					$trip->{events}->[$si]->{station},
 					$trip->{events}->[$si]->{route}->{line},
 				);
 			} elsif ($trip->{events}->[$si]->{event} eq "arrive") {
 				printf("%5s %2s  %-30s\n",
-					time2str("%H:%M", $trip->{events}->[$si]->{time}, "CET"),
+					ts_2datetime($trip->{events}->[$si]->{time}, "context")->strftime("%H:%M"),
 					"an", $trip->{events}->[$si]->{station}
 				);
 			}
 		}
-		print "\n" . "-" x 40 . "\n";
+		print "\n" . "-" x 6 . "\n";
 	}
 }
 
