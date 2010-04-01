@@ -185,6 +185,24 @@ my @routegens = (
 		],
 		generator => \&rtgenregular,
 	},
+	{
+		line => "903 Mannesmann Tor 2",
+		stations => [
+			rO(s_dib, 0),rO(s_dns, 2),rO(s_trb, 4),rO(s_pok, 6),rO(s_bar, 7),
+			rO(s_wat, 8),rO(s_vie, 9),rO(s_fas,10),rO(s_wab,11),rO(s_war,12),rO(s_son,13),rO(s_swa,15),rO(s_str,16),rO(s_hek,18),
+			rO(s_wol,20),rO(s_mpo,22),rO(s_rrh,24),rO(s_har,26),rO(s_haf,27),rO(s_ams,29),rO(s_ths,31),rO(s_lpn,32),rO(s_vos,33),
+			rO(s_eml,35),rO(s_mei,37),rO(s_add,38),rO(s_dsn,42),rO(s_dhx,44),rO(s_kpx,46),rO(s_stg,47),rO(s_pln,48),rO(s_brk,49),
+			rO(s_sic,50),rO(s_pau,51),rO(s_mah,53),rO(s_hof,54),rO(s_fis,56),rO(s_rts,57),
+			rO(s_nhs,58),rO(s_ehi,60),rO(s_hbs,61),rO(s_rst,62),rO(s_bzl,63),rO(s_mt1,64),rO(s_mt2,67),
+		],
+		start_times => [
+			sT( 4,33), sT( 4,48),
+			(map { sT($_, 3),sT($_,18),sT($_,33),sT($_,48) } 5..18),
+			sT(19, 3), sT(19,18), sT(19,33),
+			sT(19,52), sT(20,22), sT(20,52), sT(21,22), sT(21,52), sT(22,22), sT(22,52),
+		],
+		generator => \&rtgenregular,
+	},
 );
 
 my @routes = (
