@@ -5,16 +5,39 @@ use 5.010;
 
 use Data::Dumper;
 use RVP::Time;
-use List::Util qw(min);
+use List::Util qw(min first);
 use List::MoreUtils qw(firstidx after indexes);
 
 binmode(STDOUT, ":utf8");
 
 my $d = do("route_data") or die($@);
-my @routes = @{$d->{routes}};
 my @physroutes = @{$d->{physroutes}};
 my @routegens = @{$d->{routegens}};
 my $starttime = isotr_2ts("2010-03-22 13:02:00", "context");
+
+my %options = (
+	route_min_count => 5,          # minimal amount of on-demand routes generated.
+	route_max_count => 30,         # maximal amount of on-demand routes
+	route_min_timespan => 30*60,   # routes for at least the next N seconds
+	route_max_timespan => 2*60*60, # routes for at most the next N seconds
+
+	route_max_wait_time => 4*60*60,# don't wait longer than this for the next train
+	route_max_wait_skip => 10,     # ignore at most that many departing trains for a given segment
+	                               # (might ignore more trains, if there are multiple equivalent trains with the exact same departure time.)
+);
+
+# tell if two routes are equal.
+# they are not necessarily referentially equal, since they might have been
+# produced by two different generator runs.
+# the perfect solution would be to do a deep comparison.
+# for now, comparing the name and the first station should be fine as well.
+sub routes_equal {
+	my ($ra, $rb) = @_;
+	return 0 if (!defined($ra) or !defined($rb)); # don't spam if one doesn't exist.
+	    $ra->{line}                      eq $rb->{line}
+	and $ra->{route}->[0]->{stop}        eq $rb->{route}->[0]->{stop}
+	and $ra->{route}->[0]->{depart}      == $rb->{route}->[0]->{depart};
+}
 
 # generate routes from {from} to {to} departing after or at {time}.
 sub routegen_4segment {
@@ -35,8 +58,213 @@ sub routegen_4segment {
 		die("There is no route generator for $args{from} -> $args{to} - this shouldn't be happening. Dying");
 	}
 
-	# 
-	print "routegens: \n" . join("\n", map { "- $_->{line}" } @possible_routegens) . "\n";
+	# go produce
+	#  XXX comments!
+	my @results;
+	my $time = $args{time};
+	while (  @results < $options{route_min_count} and $time < $args{time} + $options{route_min_timespan}
+	and not (@results > $options{route_max_count} or  $time > $args{time} + $options{route_max_timespan})) {
+		# ask the routegens to produce one route.
+		my @nr = map { $_->{generator}->(
+			template => $_,
+			time => $time - (first { $_->{station} eq $args{from} } @{$_->{stations}})->{offset_depart}
+		) } @possible_routegens;
+
+		# no routes at all?
+		# XXX is @nr populated with nothing or with undef in that case?
+		if (!@nr) {
+			die("Transportation services shut down all services in fear of the end of the world.");
+		}
+
+		# map routes to departure time at current station.
+		my @r2d = map {
+			my $route = $_;
+			my $route_pos = firstidx { $_->{stop} eq $args{from} } @{$route->{route}};
+			{
+				route => $route, route_pos => $route_pos,
+				arrive => $route->{route}->[$route_pos]->{arrive},
+				depart => $route->{route}->[$route_pos]->{depart},
+			}
+		} @nr;
+
+		# pick all with the minimal time.
+		my $mintime = min map { $_->{depart} } @r2d;
+
+		# sanity check
+		if ($mintime < $time) {
+			die("minimal departure time $mintime is before current time $time. The route data is crap.");
+		}
+
+		# use all routes with that depart time.
+		push(@results, grep { $_->{depart} == $mintime } @r2d);
+
+		# adjust next time
+		$time = $mintime + 1;
+	}
+
+	@results;
+}
+
+sub sim_timestep {
+	my ($trip, $nsc, $physroute, $completed_trips) = @_;
+
+	# print STDERR "evaluating trip " . trip_details($trip) . "\n";
+
+	# XXX oh let's insert some sanity checks here.
+	if (!defined($trip->{state}->{next_time})) {
+		die("Trip " . trip_details($trip) . " -- has NO CURRENT TIME!");
+	}
+	if (!defined($trip->{state}->{station})) {
+		die("Trip " . trip_details($trip) . " -- has NO CURRENT STATION!");
+	}
+	if (!($trip->{state}->{station} ~~ $physroute)) {
+		die("Trip " . trip_details($trip) . " -- ended up off-route");
+	}
+
+	if ($trip->{state}->{state} eq "wait_arrive_station") {
+		my $next_stop = (after { $_ eq $trip->{state}->{station} } @{$physroute})[0];
+		# print STDERR "what to do now at $trip->{state}->{station}...\n";
+
+		# ask for some routes for this segment
+		my @routes = routegen_4segment(from => $trip->{state}->{station}, to => $next_stop, time => $nsc);
+
+		# print STDERR "* stay around and wait for one of these trains?\n";
+		# print STDERR "  - $_->{route}->{line} (arrives " . ts_2datetime($_->{arrive}, "context")->strftime("%H:%M") . ")\n" foreach grep { $_->{arrive} > $nsc } @routes;
+		# print STDERR "* enter one of these wonderful trains to get to $next_stop?\n";
+		# print STDERR "  - $_->{route}->{line} (departs " . ts_2datetime($_->{depart}, "context")->strftime("%H:%M") . ")\n" foreach grep { $_->{arrive} <= $nsc } @routes;
+
+		# too much time? kill ourselves.
+		if ($trip->{events}->[-1]->{time} + $options{route_max_wait_time} < $nsc) {
+			return ();
+		}
+
+		# let's generate additional trips for the two possibilities.
+		# note that the trip data is NOT deep cloned. this is intentional.
+		my @rt;
+
+		# if there are other trains that have not arrived yet, add trips that wait for them.
+		my $min_nsc = min map { $_->{arrive} } grep { $_->{arrive} > $nsc } @routes;
+		if (defined($min_nsc) and (!defined($trip->{state}->{wait_skipped}) or $trip->{state}->{wait_skipped} <= $options{route_max_wait_skip})) {
+			push(@rt, {
+				events => [ @{$trip->{events}} ],
+				state => {
+					station   => $trip->{state}->{station},
+					next_time => $min_nsc,
+					wait_skipped => ($trip->{state}->{wait_skipped} // 0) + 1,
+					route     => undef,
+					prev_route=> $trip->{state}->{prev_route},
+					state     => "wait_arrive_station",
+				},
+			});
+		}
+
+		# add trips for all trains that have already arrived.
+		foreach my $pr (grep { $_->{arrive} <= $nsc and !routes_equal($_->{route}, $trip->{state}->{prev_route}) } @routes) {
+			# rule out some choices that are deemed to be "unattractive".
+			# XXX BETTER attractiveness algo!
+			if (defined($trip->{state}->{prev_route})) {
+				# compare line
+				my ($la) = ($trip->{state}->{prev_route}->{line} =~ /^(\S+)/);
+				my ($lb) = (                $pr->{route}->{line} =~ /^(\S+)/);
+				if ($la eq $lb) { # XXX !
+					next;
+				}
+			}
+
+			push(@rt, {
+				events => [ @{$trip->{events}}, {
+					time       => $pr->{depart},
+					enter_time => $nsc,
+					event      => "depart",
+					station    => $trip->{state}->{station},
+					route      => $pr->{route},
+				} ],
+				state => {
+					station   => $trip->{state}->{station},
+					next_time => $pr->{route}->{route}->[$pr->{route_pos} + 1]->{arrive},
+					route     => $pr->{route},
+					route_pos => $pr->{route_pos},
+					state     => "wait_arrive_train",
+				},
+			});
+		}
+
+		return @rt;
+	} elsif ($trip->{state}->{state} eq "wait_arrive_train") {
+		# we arrived! generate trips for exiting trains and/or staying on train.
+		# TODO only leave a train here if necessary, or determined to be
+		#      an "attractive" choice, defined by some configuration parameter
+		#      and the alternative trains available.
+		#      (though trip overproduction can be defeated by not producing
+		#      any trains to enter in the wait_arrive_station state)
+		my @rt;
+
+		# first add the arrive event to the event list and update state first.
+		$trip->{state}->{route_pos}++;
+		$trip->{state}->{station} = $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos}]->{stop};
+
+		# if we arrived at the final stop, get off here and exit!
+		if ($trip->{state}->{station} eq $physroute->[-1]) {
+			push(@{$trip->{events}}, {
+				time     => $nsc,
+				event    => "arrive",
+				station  => $trip->{state}->{station},
+				route    => $trip->{state}->{route},
+			}, {
+				time     => $nsc,
+				event    => "vp_exit",
+			});
+			push(@{$completed_trips}, $trip);
+			return ();
+		} else {
+			# add trip for waiting in train, if the next stop is the next on route
+			if (defined($trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1])
+			and $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{stop} ~~ $physroute) {
+				push(@rt, {
+					events => [ @{$trip->{events}} ],
+					state => {
+						station   => $trip->{state}->{station},
+						next_time => $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{arrive},
+						route     => $trip->{state}->{route},
+						route_pos => $trip->{state}->{route_pos},
+						state     => "wait_arrive_train",
+					},
+				});
+			}
+
+			# get off at this station
+			# TODO add "attractiveness" check as described above
+			push(@rt, {
+				events => [ @{$trip->{events}}, {
+					time     => $nsc,
+					event    => "arrive",
+					station  => $trip->{state}->{station},
+					route    => $trip->{state}->{route},
+				} ],
+				state => {
+					station   => $trip->{state}->{station},
+					next_time => $nsc,
+					route     => undef,
+					route_pos => undef,
+					prev_route=> $trip->{state}->{route},
+					state     => "wait_arrive_station",
+				},
+#					}) ;# if (rand() < 0.1); # XXX XXX
+			}) if (1 or do {
+				use Term::ReadKey; ReadMode 4; my $key; print "is it attractive to get off at $trip->{state}->{station}? [y/n/q] ";
+				$key = ReadKey(0);
+				while ($key ne "q" and $key ne "y" and $key ne "n") { print "\a"; $key = ReadKey(0); }
+				print "\n";
+				ReadMode 0;
+				exit(1) if ($key eq "q");
+				$key eq "y";
+			});
+
+			return @rt;
+		}
+	} else {
+		die("Trip has entered invalid or unknown state $trip->{state}->{state}");
+	}
 }
 
 sub trip_details {
@@ -84,172 +312,10 @@ foreach my $physroute (@physroutes) {
 	while (@trips) {
 		# next simulation point-in-time: smallest NSC
 		my $nsc = min map { $_->{state}->{next_time} } @trips;
-		print STDERR "\n\nsimulation time: " . ts_2datetime($nsc, "context")->strftime("%H:%M") . "\n";
+		print STDERR "\n\nsimulation time: " . ts_2datetime($nsc, "context")->strftime("%H:%M (%Y-%m-%d %S)") . "\n";
 
 		# process all trips with that NSC.
-		@trips = ((grep { $_->{state}->{next_time} != $nsc } @trips), map {
-			my $trip = $_;
-
-			print STDERR "evaluating trip " . trip_details($trip) . "\n";
-
-			# XXX oh let's insert some sanity checks here.
-			if (!defined($trip->{state}->{next_time})) {
-				die("Trip " . trip_details($trip) . " -- has NO CURRENT TIME!");
-			}
-			if (!defined($trip->{state}->{station})) {
-				die("Trip " . trip_details($trip) . " -- has NO CURRENT STATION!");
-			}
-			if (!($trip->{state}->{station} ~~ $physroute)) {
-				die("Trip " . trip_details($trip) . " -- ended up off-route");
-			}
-
-			if ($trip->{state}->{state} eq "wait_arrive_station") {
-				my $next_stop = (after { $_ eq $trip->{state}->{station} } @{$physroute})[0];
-				print STDERR "what to do now at $trip->{state}->{station}...\n";
-
-				# XXX here, ask the on-demand route generator.
-				# find out all routes that:
-				# 1) contain the current station
-				# 2) contain the next station immediately after that in the route
-				# 3) have their depart time after the current time
-				# 4) we have not just exited a second ago
-				routegen_4segment(from => $trip->{state}->{station}, to => $next_stop, time => $nsc);
-				my @poss_routes = map {
-					my $route = $_;
-					my $i_curr = firstidx { $_->{stop} eq $trip->{state}->{station} } @{$route->{route}};
-					if ($i_curr == -1) { # cond 1
-						()
-					} elsif (!defined($route->{route}->[$i_curr + 1]) or $route->{route}->[$i_curr + 1]->{stop} ne $next_stop) { # cond 2
-						();
-					} elsif ($route->{route}->[$i_curr]->{depart} < $nsc) { # cond 3
-						();
-					} elsif (defined($trip->{state}->{prev_route}) and $trip->{state}->{prev_route} == $route) { # cond 4
-						();
-					} else {
-						({
-							route     => $route,
-							route_pos => $i_curr,
-							arrive    => $route->{route}->[$i_curr]->{arrive},
-							depart    => $route->{route}->[$i_curr]->{depart},
-						});
-					}
-				} @routes;
-
-				print STDERR "* stay around and wait for one of these trains?\n";
-				print STDERR "  - $_->{route}->{line} (arrives " . ts_2datetime($_->{arrive}, "context")->strftime("%H:%M") . ")\n" foreach grep { $_->{arrive} > $nsc } @poss_routes;
-				print STDERR "* enter one of these wonderful trains to get to $next_stop?\n";
-				print STDERR "  - $_->{route}->{line} (departs " . ts_2datetime($_->{depart}, "context")->strftime("%H:%M") . ")\n" foreach grep { $_->{arrive} <= $nsc } @poss_routes;
-
-				# let's generate additional trips for the two possibilities.
-				# note that the trip data is NOT deep cloned. this is intentional.
-				my @rt;
-
-				# if there are other trains that have not arrived yet, add trips for them.
-				my $min_nsc = min map { $_->{arrive} } grep { $_->{arrive} > $nsc } @poss_routes;
-				if (defined($min_nsc)) {
-					push(@rt, {
-						events => [ @{$trip->{events}} ],
-						state => {
-							station   => $trip->{state}->{station},
-							next_time => $min_nsc,
-							route     => undef,
-							state     => "wait_arrive_station",
-						},
-					});
-				}
-
-				# add trips for all trains that have already arrived.
-				foreach my $pr (grep { $_->{arrive} <= $nsc } @poss_routes) {
-					push(@rt, {
-						events => [ @{$trip->{events}}, {
-							time       => $pr->{depart},
-							enter_time => $nsc,
-							event      => "depart",
-							station    => $trip->{state}->{station},
-							route      => $pr->{route},
-						} ],
-						state => {
-							station   => $trip->{state}->{station},
-							next_time => $pr->{route}->{route}->[$pr->{route_pos} + 1]->{arrive},
-							route     => $pr->{route},
-							route_pos => $pr->{route_pos},
-							state     => "wait_arrive_train",
-						},
-					});
-				}
-
-				@rt;
-			} elsif ($trip->{state}->{state} eq "wait_arrive_train") {
-				# we arrived! generate trips for exiting trains and/or staying on train.
-				# TODO only leave a train here if necessary, or determined to be
-				#      an "attractive" choice, defined by some configuration parameter
-				#      and the alternative trains available.
-				#      (though trip overproduction can be defeated by not producing
-				#      any trains to enter in the wait_arrive_station state)
-				my @rt;
-
-				# first add the arrive event to the event list and update state first.
-				$trip->{state}->{route_pos}++;
-				$trip->{state}->{station} = $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos}]->{stop};
-
-				# if we arrived at the final stop, get off here and exit!
-				if ($trip->{state}->{station} eq $physroute->[-1]) {
-					push(@{$trip->{events}}, {
-						time     => $nsc,
-						event    => "arrive",
-						station  => $trip->{state}->{station},
-						route    => $trip->{state}->{route},
-					}, {
-						time     => $nsc,
-						event    => "vp_exit",
-					});
-					push(@completed_trips, $trip);
-					();
-				} else {
-					# add trip for waiting in train, if the next stop is the next on route
-					if (defined($trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1])
-					and $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{stop} ~~ $physroute) {
-						push(@rt, {
-							events => [ @{$trip->{events}} ],
-							state => {
-								station   => $trip->{state}->{station},
-								next_time => $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{arrive},
-								route     => $trip->{state}->{route},
-								route_pos => $trip->{state}->{route_pos},
-								state     => "wait_arrive_train",
-							},
-						});
-					}
-
-					# get off at this station
-					# TODO add "attractiveness" check as described above
-					push(@rt, {
-						events => [ @{$trip->{events}}, {
-							time     => $nsc,
-							event    => "arrive",
-							station  => $trip->{state}->{station},
-							route    => $trip->{state}->{route},
-						} ],
-						state => {
-							station   => $trip->{state}->{station},
-							next_time => $nsc,
-							route     => undef,
-							route_pos => undef,
-							prev_route=> $trip->{state}->{route},
-							state     => "wait_arrive_station",
-						},
-					}) ;# if (rand() < 0.1); # XXX XXX
-
-					@rt;
-				}
-			} else {
-				die("Trip has entered invalid or unknown state $trip->{state}->{state}");
-			}
-		} grep { $_->{state}->{next_time} == $nsc } @trips);
-
-		print STDERR "Trips:\n";
-		print STDERR "* " . trip_details($_) . "\n" foreach (@trips);
-		print STDERR "\n";
+		@trips = ((grep { $_->{state}->{next_time} != $nsc } @trips), map { sim_timestep($_, $nsc, $physroute, \@completed_trips) } grep { $_->{state}->{next_time} == $nsc } @trips);
 	}
 
 	# print result trips
@@ -266,7 +332,7 @@ foreach my $physroute (@physroutes) {
 			} elsif ($trip->{events}->[$si]->{event} eq "arrive") {
 				printf("%5s %2s  %-30s\n",
 					ts_2datetime($trip->{events}->[$si]->{time}, "context")->strftime("%H:%M"),
-					"an", $trip->{events}->[$si]->{station}
+					"an", $trip->{events}->[$si]->{station},
 				);
 			}
 		}
