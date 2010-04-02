@@ -159,14 +159,12 @@ sub sim_timestep {
 		}
 
 		# add trips for all trains that have already arrived.
-		foreach my $pr (grep { $_->{arrive} <= $nsc and !routes_equal($_->{route}, $trip->{state}->{prev_route}) } @routes) {
+		POSS_ROUTE: foreach my $pr (grep { $_->{arrive} <= $nsc and !routes_equal($_->{route}, $trip->{state}->{prev_route}) } @routes) {
 			# rule out some choices that are deemed to be "unattractive".
-			# XXX BETTER attractiveness algo!
+
+			# for example, re-entering the exact same line is useless, if it doesn't even have a different route
 			if (defined($trip->{state}->{prev_route})) {
-				# compare line
-				my ($la) = ($trip->{state}->{prev_route}->{line} =~ /^(\S+)/);
-				my ($lb) = (                $pr->{route}->{line} =~ /^(\S+)/);
-				if ($la eq $lb) { # XXX !
+				if ((map { $_->{stop} } @{$trip->{state}->{prev_route}->{route}}) ~~ (map { $_->{stop} } @{$pr->{route}->{route}})) {
 					next;
 				}
 			}
