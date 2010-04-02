@@ -128,11 +128,6 @@ sub sim_timestep {
 		# ask for some routes for this segment
 		my @routes = routegen_4segment(from => $trip->{state}->{station}, to => $next_stop, time => $nsc);
 
-		# print STDERR "* stay around and wait for one of these trains?\n";
-		# print STDERR "  - $_->{route}->{line} (arrives " . ts_2datetime($_->{arrive}, "context")->strftime("%H:%M") . ")\n" foreach grep { $_->{arrive} > $nsc } @routes;
-		# print STDERR "* enter one of these wonderful trains to get to $next_stop?\n";
-		# print STDERR "  - $_->{route}->{line} (departs " . ts_2datetime($_->{depart}, "context")->strftime("%H:%M") . ")\n" foreach grep { $_->{arrive} <= $nsc } @routes;
-
 		# too much time? kill ourselves.
 		if ($trip->{events}->[-1]->{time} + $options{route_max_wait_time} < $nsc) {
 			return ();
@@ -167,6 +162,17 @@ sub sim_timestep {
 				if ((map { $_->{stop} } @{$trip->{state}->{prev_route}->{route}}) ~~ (map { $_->{stop} } @{$pr->{route}->{route}})) {
 					next;
 				}
+			}
+
+			# XXX ask user
+			{
+				use Term::ReadKey; ReadMode 4; my $key; print "is it attractive to enter $pr->{route}->{line} at $trip->{state}->{station}? [y/n/q] ";
+				$key = ReadKey(0);
+				while ($key ne "q" and $key ne "y" and $key ne "n") { print "\a"; $key = ReadKey(0); }
+				print "\n";
+				ReadMode 0;
+				exit(1) if ($key eq "q");
+				next POSS_ROUTE if $key eq "n";
 			}
 
 			push(@rt, {
@@ -214,52 +220,42 @@ sub sim_timestep {
 			});
 			push(@{$completed_trips}, $trip);
 			return ();
-		} else {
-			# add trip for waiting in train, if the next stop is the next on route
-			if (defined($trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1])
-			and $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{stop} ~~ $physroute) {
-				push(@rt, {
-					events => [ @{$trip->{events}} ],
-					state => {
-						station   => $trip->{state}->{station},
-						next_time => $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{arrive},
-						route     => $trip->{state}->{route},
-						route_pos => $trip->{state}->{route_pos},
-						state     => "wait_arrive_train",
-					},
-				});
-			}
+		}
 
-			# get off at this station
-			# TODO add "attractiveness" check as described above
+		# add trip for waiting in train, if the next stop is the next on route
+		if (defined($trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1])
+		and $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{stop} ~~ $physroute) {
 			push(@rt, {
-				events => [ @{$trip->{events}}, {
-					time     => $nsc,
-					event    => "arrive",
-					station  => $trip->{state}->{station},
-					route    => $trip->{state}->{route},
-				} ],
+				events => [ @{$trip->{events}} ],
 				state => {
 					station   => $trip->{state}->{station},
-					next_time => $nsc,
-					route     => undef,
-					route_pos => undef,
-					prev_route=> $trip->{state}->{route},
-					state     => "wait_arrive_station",
+					next_time => $trip->{state}->{route}->{route}->[$trip->{state}->{route_pos} + 1]->{arrive},
+					route     => $trip->{state}->{route},
+					route_pos => $trip->{state}->{route_pos},
+					state     => "wait_arrive_train",
 				},
-#					}) ;# if (rand() < 0.1); # XXX XXX
-			}) if (1 or do {
-				use Term::ReadKey; ReadMode 4; my $key; print "is it attractive to get off at $trip->{state}->{station}? [y/n/q] ";
-				$key = ReadKey(0);
-				while ($key ne "q" and $key ne "y" and $key ne "n") { print "\a"; $key = ReadKey(0); }
-				print "\n";
-				ReadMode 0;
-				exit(1) if ($key eq "q");
-				$key eq "y";
 			});
-
-			return @rt;
 		}
+
+		# get off at this station
+		push(@rt, {
+			events => [ @{$trip->{events}}, {
+				time     => $nsc,
+				event    => "arrive",
+				station  => $trip->{state}->{station},
+				route    => $trip->{state}->{route},
+			} ],
+			state => {
+				station   => $trip->{state}->{station},
+				next_time => $nsc,
+				route     => undef,
+				route_pos => undef,
+				prev_route=> $trip->{state}->{route},
+				state     => "wait_arrive_station",
+			},
+		});
+
+		return @rt;
 	} else {
 		die("Trip has entered invalid or unknown state $trip->{state}->{state}");
 	}
