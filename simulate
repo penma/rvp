@@ -158,9 +158,16 @@ sub sim_timestep {
 			# rule out some choices that are deemed to be "unattractive".
 
 			# for example, re-entering the exact same line is useless, if it doesn't even have a different route
+			# this also applies if the next route doesn't provide more stations than the old one.
 			if (defined($trip->{state}->{prev_route})) {
-				if ((map { $_->{stop} } @{$trip->{state}->{prev_route}->{route}}) ~~ (map { $_->{stop} } @{$pr->{route}->{route}})) {
-					next;
+				my @s_old = map { $_->{stop} } @{$trip->{state}->{prev_route}->{route}};
+				my @s_new = map { $_->{stop} } @{$pr->{route}->{route}};
+
+				my $si = firstidx { $_ eq $s_new[0] } @s_old;
+				if ($si != -1) {
+					if (@s_old[$si .. $si + @s_new - 1] ~~ @s_new) {
+						next;
+					}
 				}
 			}
 
