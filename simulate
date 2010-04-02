@@ -157,15 +157,23 @@ sub sim_timestep {
 		POSS_ROUTE: foreach my $pr (grep { $_->{arrive} <= $nsc and !routes_equal($_->{route}, $trip->{state}->{prev_route}) } @routes) {
 			# rule out some choices that are deemed to be "unattractive".
 
-			# for example, re-entering the exact same line is useless, if it doesn't even have a different route
-			# this also applies if the next route doesn't provide more stations than the old one.
+			# for example, forbid entering a line that provides a connection to the next station,
+			# that isn't better than the one the previous route could provide.
 			if (defined($trip->{state}->{prev_route})) {
-				my @s_old = map { $_->{stop} } @{$trip->{state}->{prev_route}->{route}};
-				my @s_new = map { $_->{stop} } @{$pr->{route}->{route}};
+				my $i_old = firstidx { $_->{stop} eq $trip->{state}->{station} } @{$trip->{state}->{prev_route}->{route}};
+				my $i_new = firstidx { $_->{stop} eq $trip->{state}->{station} } @{$pr->{route}->{route}};
 
-				my $si = firstidx { $_ eq $s_new[0] } @s_old;
-				if ($si != -1) {
-					if (@s_old[$si .. $si + @s_new - 1] ~~ @s_new) {
+				if ($i_old == -1 or $i_new == -1) {
+					die("Sanity check failed: the old or the new route don't contain the current station");
+				}
+
+				if ($trip->{state}->{prev_route}->{route}->[$i_old + 1]->{stop} eq $pr->{route}->{route}->[$i_new + 1]->{stop}) {
+					my $t_old = $trip->{state}->{prev_route}->{route}->[$i_old + 1]->{depart}
+					          - $trip->{state}->{prev_route}->{route}->[$i_old    ]->{depart};
+					my $t_new = $pr->{route}->{route}->[$i_old + 1]->{depart}
+					          - $pr->{route}->{route}->[$i_old    ]->{depart};
+
+					if ($t_new >= $t_old) {
 						next;
 					}
 				}
