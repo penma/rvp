@@ -52,7 +52,7 @@ sub dijkstra_worker {
 
 	while (1) {
 		# find the smallest unvisited node
-		my $current = $suboptimal->pop() // pop(@{$self->{d_unvisited}}) // last;
+		my $current = $suboptimal->pop() // last;
 
 		# update all neighbors
 		foreach my $edge (@{$vert->{$current}->[VERT_EDGES_OUT]}) {
@@ -70,10 +70,10 @@ sub dijkstra_worker {
 	my @path = ();
 	my $current = $to;
 	NODE: while ($current ne $from) {
-		unshift(@path, $current);
 		foreach my $edge (@{$vert->{$current}->[VERT_EDGES_IN]}) {
 			if ($self->{d_dist}->{$current} == $self->{d_dist}->{$edge->[EDGE_FROM]} + $edge->[EDGE_WEIGHT]) {
 				$current = $edge->[EDGE_FROM];
+				unshift(@path, $edge);
 				next NODE;
 			}
 		}
@@ -81,7 +81,6 @@ sub dijkstra_worker {
 		# so there's no path.
 		return undef;
 	}
-	unshift(@path, $from);
 
 	return @path;
 }
@@ -113,15 +112,16 @@ sub dijkstra {
 }
 
 sub addedge {
-	# my ($self, $from, $to, $weight) = @_;
-	deledge(@_[0..2]);
-	my $v = $_[0]->{vertices};
-	my $v_from = $v->{$_[1]} // $_[0]->addvertex($_[1]);
-	my $v_to   = $v->{$_[2]} // $_[0]->addvertex($_[2]);
+	# my ($self, $from, $to, $weight, $userdata) = @_;
+	my $g = shift;
+	deledge($g, @_[0,1]);
+	my $v = $g->{vertices};
+	my $v_from = $v->{$_[0]} // $g->addvertex($_[0]);
+	my $v_to   = $v->{$_[1]} // $g->addvertex($_[1]);
 
-	my $edge = [ $_[1], $_[2], $_[3] ];
+	my $edge = [ @_ ];
 
-	push(@{$_[0]->{edges}}, $edge);
+	push(@{$g->{edges}}, $edge);
 	push(@{$v_from->[VERT_EDGES_OUT]}, $edge);
 	push(@{$v_to->[VERT_EDGES_IN]}, $edge);
 }
