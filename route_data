@@ -167,6 +167,20 @@ my @routegens = (
 		generator => \&rtgenregular,
 	},
 	{
+		line => "903 Watereck",
+		stations => [
+			rO(s_rts, 0),rO(s_fis, 1),rO(s_hof, 3),rO(s_mah, 4),rO(s_pau, 6),rO(s_sic, 8),rO(s_brk, 9),rO(s_pln,10),rO(s_stg,11),
+			rO(s_kpx,12),rO(s_dhx,14),rO(s_dsn,16),rO(s_add,19),rO(s_mei,20),rO(s_eml,23),rO(s_vos,25),rO(s_lpn,26),rO(s_ths,27),
+			rO(s_ams,29),rO(s_haf,31),rO(s_har,32),rO(s_rrh,34),rO(s_mpo,36),rO(s_wol,38),rO(s_hek,39),rO(s_str,41),rO(s_swa,42),
+			rO(s_son,43),rO(s_war,45),rO(s_wab,46),rO(s_fas,47),rO(s_vie,48),rO(s_wat,49),
+		],
+		start_times => [ sT( 5,53),
+			(map { sT($_, 8), sT($_,23), sT($_,38), sT($_,53) } 6..18),
+			# ...
+		],
+		generator => \&rtgenregular,
+	},
+	{
 		line => "SB40 Duisburg Hauptbahnhof", # afternoon
 		stations => [
 			rO("Walsum Overbruch", 0), rO("Franz-Lenze-Platz", 1), rO("Bahnhofstraße", 2),
@@ -175,13 +189,65 @@ my @routegens = (
 		start_times => [ sT(15,55), sT(16,55), sT(17,55) ],
 		generator => \&rtgenregular,
 	},
+	# monday-thursday
+	{
+		line => "U79 Kesselsberg - Duissern",
+		stations => [
+			rO(s_keb, 0),rO(s_sak, 1),rO(s_mlk, 2),rO(s_stb, 4),rO(s_mns, 6),rO(s_nef, 8),rO(s_isk, 9),
+			rO(s_kts,10),rO(s_gbt,11),rO(s_grw,13),rO(s_kjs,15),rO(s_kms,17),rO(s_mus,18),rO(s_pln,19),
+			rO(s_stg,20),rO(s_kpx,21),rO(s_dhx,23),rO(s_dsn,25),
+		],
+		start_times => [ sT( 4,14) ],
+		generator => \&rtgenregular,
+	},
+	{
+		line => "U79 Kesselsberg - Meiderich",
+		stations => [
+			rO(s_keb, 0),rO(s_sak, 2),rO(s_mlk, 3),rO(s_stb, 5),rO(s_mns, 7),rO(s_nef, 9),rO(s_isk,11),
+			rO(s_kts,12),rO(s_gbt,13),rO(s_grw,14),rO(s_kjs,16),rO(s_kms,18),rO(s_mus,19),rO(s_pln,20),
+			rO(s_stg,21),rO(s_kpx,22),rO(s_dhx,24),rO(s_dsn,25),rO(s_add,28),rO(s_mei,29)
+		],
+		start_times => [ sT( 5,27), sT( 5,52) ],
+		generator => \&rtgenregular,
+	},
+	{
+		line => "U79 Hauptbahnhof - Duissern", # fruehkurs
+		stations => [
+			rO(s_dhb, 0),rO(s_oss, 1),rO(s_sts, 2),rO(s_hhx, 3),rO(s_nos, 5),rO(s_kvs, 6),rO(s_ken, 7),
+			rO(s_gop, 8),rO(s_teo,10),rO(s_rep,11),rO(s_nrd,12),rO(s_sks,13),rO(s_fgp,14),rO(s_loh,16),
+			rO(s_ats,18),rO(s_kis,19),rO(s_klp,20),rO(s_ksa,22),rO(s_ama,23),rO(s_wtl,24),rO(s_fht,27),
+			rO(s_keb,29),rO(s_sak,30),rO(s_mlk,31),rO(s_stb,33),rO(s_mns,35),rO(s_nef,37),rO(s_isk,38),
+			rO(s_kts,39),rO(s_gbt,40),rO(s_grw,42),rO(s_kjs,44),rO(s_kms,46),rO(s_mus,47),rO(s_pln,48),
+			rO(s_stg,49),rO(s_kpx,50),rO(s_dhx,52),rO(s_dsn,54),
+		],
+		start_times => [ sT( 4, 5), sT( 4,15), sT( 4,27), ],
+		generator => \&rtgenregular,
+	},
+	{
+		line => "U79 Hauptbahnhof - Meiderich",
+		stations => [
+			rO(s_dhb, 0),rO(s_oss, 1),rO(s_sts, 2),rO(s_hhx, 3),rO(s_nos, 5),rO(s_kvs, 6),rO(s_ken, 7),
+			rO(s_gop, 8),rO(s_teo,10),rO(s_rep,11),rO(s_nrd,12),rO(s_sks,13),rO(s_fgp,14),rO(s_loh,16),
+			rO(s_ats,18),rO(s_kis,19),rO(s_klp,21),rO(s_ksa,22),rO(s_ama,23),rO(s_wtl,24),rO(s_fht,26),
+			rO(s_keb,30),rO(s_sak,32),rO(s_mlk,33),rO(s_stb,35),rO(s_mns,37),rO(s_nef,39),rO(s_isk,41),
+			rO(s_kts,42),rO(s_gbt,43),rO(s_grw,44),rO(s_kjs,46),rO(s_kms,48),rO(s_mus,49),rO(s_pln,50),
+			rO(s_stg,51),rO(s_kpx,52),rO(s_dhx,54),rO(s_dsn,56),rO(s_add,59),rO(s_mei,60),
+		],
+		start_times => [
+			          sT( 5,12),          sT( 5,32),sT( 5,42),sT( 5,52),
+			sT( 6, 2),sT( 6,12),sT( 6,22),sT( 6,32),sT( 6,42),sT( 6,52),
+			sT( 7, 2),sT( 7,12),
+			(map { sT($_,12), sT($_,42) } 10..14),
+			          sT(15,12),sT(15,22),sT(15,32),sT(15,42),sT(15,52),
+			                              sT(18,32),sT(18,42),sT(18,52),
+		],
+		generator => \&rtgenregular,
+	},
 );
-
-
 
 # FIXME
 # data from rvp-planner
-@physroutes = ([ s_vie, s_fas, s_wab, s_war, s_hoe ]);
+@physroutes = ([ s_kms, s_mus, s_pln, s_stg, s_kpx, s_dhx, s_dsn, s_add, s_mei, s_eml ]);
 
 # return
 { physroutes => \@physroutes, routegens => \@routegens, }

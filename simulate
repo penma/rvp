@@ -58,8 +58,7 @@ sub routegen_4segment {
 		die("There is no route generator for $args{from} -> $args{to} - this shouldn't be happening. Dying");
 	}
 
-	# go produce
-	#  XXX comments!
+	# go ask the routegen for some routes
 	my @results;
 	my $time = $args{time};
 	while (  @results < $options{route_min_count} and $time < $args{time} + $options{route_min_timespan}
@@ -170,24 +169,13 @@ sub sim_timestep {
 				if ($trip->{state}->{prev_route}->{route}->[$i_old + 1]->{stop} eq $pr->{route}->{route}->[$i_new + 1]->{stop}) {
 					my $t_old = $trip->{state}->{prev_route}->{route}->[$i_old + 1]->{depart}
 					          - $trip->{state}->{prev_route}->{route}->[$i_old    ]->{depart};
-					my $t_new = $pr->{route}->{route}->[$i_old + 1]->{depart}
-					          - $pr->{route}->{route}->[$i_old    ]->{depart};
+					my $t_new = $pr->{route}->{route}->[$i_new + 1]->{depart}
+					          - $pr->{route}->{route}->[$i_new    ]->{depart};
 
 					if ($t_new >= $t_old) {
 						next;
 					}
 				}
-			}
-
-			# XXX ask user
-			{
-				use Term::ReadKey; ReadMode 4; my $key; print "is it attractive to enter $pr->{route}->{line} at $trip->{state}->{station}? [y/n/q] ";
-				$key = ReadKey(0);
-				while ($key ne "q" and $key ne "y" and $key ne "n") { print "\a"; $key = ReadKey(0); }
-				print "\n";
-				ReadMode 0;
-				exit(1) if ($key eq "q");
-				next POSS_ROUTE if $key eq "n";
 			}
 
 			push(@rt, {
@@ -211,11 +199,6 @@ sub sim_timestep {
 		return @rt;
 	} elsif ($trip->{state}->{state} eq "wait_arrive_train") {
 		# we arrived! generate trips for exiting trains and/or staying on train.
-		# TODO only leave a train here if necessary, or determined to be
-		#      an "attractive" choice, defined by some configuration parameter
-		#      and the alternative trains available.
-		#      (though trip overproduction can be defeated by not producing
-		#      any trains to enter in the wait_arrive_station state)
 		my @rt;
 
 		# first add the arrive event to the event list and update state first.
