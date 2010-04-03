@@ -1,0 +1,153 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+use utf8;
+binmode(STDOUT, ":utf8");
+
+use Data::Dumper;
+use Time::HiRes qw(time);
+use Storable qw(dclone);
+use List::Util qw(sum);
+
+use FastaGraph;
+
+$| = 1;
+
+my $g = FastaGraph->new();
+
+my %stops;
+sub addstop {
+	my ($time, $from, $to, $dur, $line) = @_;
+	$stops{$from} = 1; $stops{$to} = 1;
+	# calculate start time
+	my ($h, $m) = split(/:/, $time);
+	$time = $h * 60 + $m;
+	# add to graph
+	$g->addedge("$time $from", ($time + $dur) . " $to", $dur, { line => $line });
+}
+
+# add some static data
+addstop("15:33", "Dinslaken Bf"           => "Dinslaken Neustraße",    2, "903 Mannesmann Tor 2");
+addstop("15:35", "Dinslaken Neustraße"    => "Dinslaken Trabrennbahn", 2, "903 Mannesmann Tor 2");
+addstop("15:37", "Dinslaken Trabrennbahn" => "Dinslaken Pollenkamp",   2, "903 Mannesmann Tor 2");
+addstop("15:39", "Dinslaken Pollenkamp"   => "Dinslaken Bärenstraße",  1, "903 Mannesmann Tor 2");
+addstop("15:40", "Dinslaken Bärenstraße"  => "Watereck",               1, "903 Mannesmann Tor 2");
+addstop("15:41", "Watereck"               => "Vierlinden",             1, "903 Mannesmann Tor 2");
+addstop("15:42", "Vierlinden"             => "Fasanenstraße",          1, "903 Mannesmann Tor 2");
+addstop("15:43", "Fasanenstraße"          => "Walsum Betriebshof",     1, "903 Mannesmann Tor 2");
+addstop("15:44", "Walsum Betriebshof"     => "Walsum Rathaus",         1, "903 Mannesmann Tor 2");
+addstop("15:45", "Walsum Rathaus"         => "Sonnenstraße",           1, "903 Mannesmann Tor 2");
+
+addstop("15:49", "Watereck"               => "Vierlinden",             1, "903 Rheintörchenstraße");
+addstop("15:50", "Vierlinden"             => "Fasanenstraße",          1, "903 Rheintörchenstraße");
+addstop("15:51", "Fasanenstraße"          => "Walsum Betriebshof",     1, "903 Rheintörchenstraße");
+addstop("15:52", "Walsum Betriebshof"     => "Walsum Rathaus",         1, "903 Rheintörchenstraße");
+addstop("15:53", "Walsum Rathaus"         => "Sonnenstraße",           1, "903 Rheintörchenstraße");
+
+addstop("15:57", "Bahnhofstraße"          => "Vierlinden",             3, "SB40 Duisburg Hauptbahnhof");
+addstop("16:00", "Vierlinden"             => "Walsum Rathaus",         4, "SB40 Duisburg Hauptbahnhof");
+addstop("16:04", "Walsum Rathaus"         => "Hoeveler Straße",        1, "SB40 Duisburg Hauptbahnhof");
+addstop("16:05", "Hoeveler Straße"        => "Hauptbahnhof",          13, "SB40 Duisburg Hauptbahnhof");
+# (end static data)
+
+# extend data with waiting connections.
+# currently this generates extra vertices for every minute.
+# this has the advantage that for all known stations, for the simulation timerange,
+# there is always a way to refer to a station+time combo.
+# unless this turns out to be too slow, it could probably remain that way
+for my $stop (keys(%stops)) {
+	for my $time ( (map { "15:" . $_ } 30..59), (map { "16:" . $_ } 0..30) ) {
+		addstop($time, $stop, $stop, 1, "WAIT");
+	}
+}
+
+sub path_length {
+	my ($graph, $path) = @_;
+	return sum map { $_->[2] } @{$path};
+}
+
+sub walk_the_tree {
+	my ($graph, $from, $to, $level, $del_to) = @_;
+	my @d = [ $graph->dijkstra($from, $to, $del_to) ];
+
+	if (!defined($d[0]->[0])) {
+		return ();
+	}
+
+	if ($level > 0) {
+		foreach (0..(@{$d[0]}-1)) {
+			# from copies of the graph, remove one edge from the result path,
+			# and continue finding paths on that tree.
+			my $g2 = dclone($graph);
+			$g2->deledge($d[0]->[$_]->[0], $d[0]->[$_]->[1]);
+			my @new = walk_the_tree($g2, $from, $to, $level - 1, $d[0]->[$_]->[1]);
+
+			# add all new paths, unless they are already present in the result set
+			foreach my $n (@new) {
+				push(@d, $n) unless (grep { $n ~~ $_ } @d);
+			}
+		}
+	}
+
+	@d;
+}
+
+sub gid_parse {
+	my ($gid) = @_;
+	$gid =~ /^(?<time>\S+) (?<station>.*)$/;
+	{
+		time    => sprintf("%02d:%02d", int($+{time} / 60), $+{time} % 60),
+		station => $+{station},
+	};
+}
+
+sub gid_2time    { gid_parse(@_)->{time} }
+sub gid_2station { gid_parse(@_)->{station} }
+
+my @conn = walk_the_tree($g, $ARGV[0], $ARGV[1], 2);
+foreach my $conn (@conn) {
+	my @stuff = grep { $_->[3]->{line} ne "WAIT" } @{$conn};
+	my @ev;
+	push(@ev, {
+		event   => "depart",
+		station => gid_2station($stuff[0]->[0]),
+		time    => gid_2time($stuff[0]->[0]),
+		line    => $stuff[0]->[3]->{line},
+	});
+	for (my $i = 1; $i <= @stuff - 2; $i++) {
+		if ($stuff[$i]->[3]->{line} ne $stuff[$i-1]->[3]->{line}) {
+			push(@ev, {
+				event    => "arrive",
+				station  => gid_2station($stuff[$i-1]->[1]),
+				time     => gid_2time($stuff[$i-1]->[1]),
+			}, {
+				event    => "depart",
+				station  => gid_2station($stuff[$i]->[0]),
+				time     => gid_2time($stuff[$i]->[0]),
+				line     => $stuff[$i]->[3]->{line},
+			});
+		}
+	}
+	push(@ev, {
+		event    => "arrive",
+		station  => gid_2station($stuff[-1]->[1]),
+		time     => gid_2time($stuff[-1]->[1]),
+	});
+
+	foreach my $event (@ev) {
+		if ($event->{event} eq "depart") {
+			print "\n";
+			printf("%5s %2s  %-30s  %s\n",
+				$event->{time}, "ab", $event->{station},
+				$event->{line},
+			);
+		} elsif ($event->{event} eq "arrive") {
+			printf("%5s %2s  %-30s\n",
+				$event->{time}, "an", $event->{station},
+			);
+		}
+	}
+	print "\n" . "-" x 6 . "\n";
+}
+
