@@ -8,11 +8,11 @@ use File::Slurp;
 use File::Find::Rule;
 use Storable qw(dclone);
 
-use FastaGraph;
+use FastaGraphOLD;
 
 $| = 1;
 
-my $g = FastaGraph->new();
+my $g = FastaGraphOLD->new();
 
 my @datafiles = File::Find::Rule->file()->in("data");
 
