@@ -6,125 +6,36 @@ use utf8;
 binmode(STDOUT, ":utf8");
 
 use Data::Dumper;
-use Time::HiRes qw(time);
-use Storable qw(dclone retrieve);
 use List::Util qw(sum);
-use List::MoreUtils qw(indexes firstidx);
-
-use FastaGraph;
-
-use RVP::Schedule;
+use RVP::Calculate;
 
 $| = 1;
 
-my $g = FastaGraph->new();
+my $calc = RVP::Calculate->new();
 
-my %stops;
 print STDERR "Loading route data...";
 my @routes = RVP::Schedule::from_file("fahrplandaten/903-mo_fr-ri.huettenheim.csv");
 print STDERR " done.\nBuilding graph from route data...";
-foreach my $route (@routes) {
-	for (my $si = 0; $si <= @{$route->{route}} - 2; $si++) {
-		$stops{$route->{route}->[$si]->{station}} = 1;
-		$g->addedge(
-			"$route->{route}->[$si]->{depart} $route->{route}->[$si]->{station}",
-			"$route->{route}->[$si+1]->{arrive} $route->{route}->[$si+1]->{station}",
-			$route->{route}->[$si+1]->{arrive} - $route->{route}->[$si]->{depart},
-			{ line => "unknown $route->{route}->[-1]->{station} (RS $route->{route}->[0]->{depart})" },
-		);
-	}
-}
+$calc->add_route_data(@routes);
 print STDERR " done.\n";
 
-# extend data with waiting connections.
-# currently this generates extra vertices for every minute.
-# this has the advantage that for all known stations, for the simulation timerange,
-# there is always a way to refer to a station+time combo.
-# unless this turns out to be too slow, it could probably remain that way
 print STDERR "Adding wait nodes...";
-my $stop_index = 0;
+my %stops; foreach (map { keys(%{$_->{stations}}) } @routes) { $stops{$_} = 1; }
 for my $stop (keys(%stops)) {
-	for my $time ((15*60+30)..(16*60+30)) {
-		$g->addedge("$time $stop", ($time + 1) . " $stop", 1, { line => "WAIT" });
-	}
+	$calc->add_wait_nodes($stop, 15*60+30, 16*60+30);
 }
 print STDERR " done.\n";
-print STDERR "Graph has " . $g->countvertices() . " vertices and " . $g->countedges() . " edges now.\n";
+print STDERR "Graph has " . $calc->{graph}->countvertices() . " vertices and " . $calc->{graph}->countedges() . " edges now.\n";
 
 sub path_length {
 	my ($graph, $path) = @_;
 	return sum map { $_->[2] } @{$path};
 }
 
-sub walk_the_tree {
-	my ($graph, $from, $to, $level, $del_to) = @_;
-	my @d = [ $graph->dijkstra($from, $to, $del_to) ];
-
-	if (!defined($d[0]->[0])) {
-		return ();
-	}
-
-	if ($level > 0) {
-		foreach (0..(@{$d[0]}-1)) {
-			# from copies of the graph, remove one edge from the result path,
-			# and continue finding paths on that tree.
-			my $g2 = dclone($graph);
-			$g2->deledge($d[0]->[$_]->[0], $d[0]->[$_]->[1]);
-			my @new = walk_the_tree($g2, $from, $to, $level - 1, $d[0]->[$_]->[1]);
-
-			# add all new paths, unless they are already present in the result set
-			foreach my $n (@new) {
-				push(@d, $n) unless (grep { $n ~~ $_ } @d);
-			}
-		}
-	}
-
-	@d;
-}
-
-sub gid_parse {
-	my ($gid) = @_;
-	$gid =~ /^(?<time>\S+) (?<station>.*)$/;
-	{
-		time    => sprintf("%02d:%02d", int($+{time} / 60), $+{time} % 60),
-		station => $+{station},
-	};
-}
-
-sub gid_2time    { gid_parse(@_)->{time} }
-sub gid_2station { gid_parse(@_)->{station} }
-
-my @conn = walk_the_tree($g, $ARGV[0], $ARGV[1], 2);
-foreach my $conn (@conn) {
-	my @stuff = grep { $_->[3]->{line} ne "WAIT" } @{$conn};
-	my @ev;
-	push(@ev, {
-		event   => "depart",
-		station => gid_2station($stuff[0]->[0]),
-		time    => gid_2time($stuff[0]->[0]),
-		line    => $stuff[0]->[3]->{line},
-	});
-	for (my $i = 1; $i <= @stuff - 2; $i++) {
-		if ($stuff[$i]->[3]->{line} ne $stuff[$i-1]->[3]->{line}) {
-			push(@ev, {
-				event    => "arrive",
-				station  => gid_2station($stuff[$i-1]->[1]),
-				time     => gid_2time($stuff[$i-1]->[1]),
-			}, {
-				event    => "depart",
-				station  => gid_2station($stuff[$i]->[0]),
-				time     => gid_2time($stuff[$i]->[0]),
-				line     => $stuff[$i]->[3]->{line},
-			});
-		}
-	}
-	push(@ev, {
-		event    => "arrive",
-		station  => gid_2station($stuff[-1]->[1]),
-		time     => gid_2time($stuff[-1]->[1]),
-	});
-
-	foreach my $event (@ev) {
+my @connections = $calc->calculate($ARGV[0], $ARGV[1], 1);
+foreach my $connection (@connections) {
+	my @events = RVP::Calculate::connection_as_events(@{$connection});
+	foreach my $event (@events) {
 		if ($event->{event} eq "depart") {
 			print "\n";
 			printf("%5s %2s  %-30s  %s\n",
