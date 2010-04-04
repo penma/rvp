@@ -7,60 +7,49 @@ binmode(STDOUT, ":utf8");
 
 use Data::Dumper;
 use Time::HiRes qw(time);
-use Storable qw(dclone);
+use Storable qw(dclone retrieve);
 use List::Util qw(sum);
+use List::MoreUtils qw(indexes firstidx);
 
 use FastaGraph;
+
+use RVP::Schedule;
 
 $| = 1;
 
 my $g = FastaGraph->new();
 
 my %stops;
-sub addstop {
-	my ($time, $from, $to, $dur, $line) = @_;
-	$stops{$from} = 1; $stops{$to} = 1;
-	# calculate start time
-	my ($h, $m) = split(/:/, $time);
-	$time = $h * 60 + $m;
-	# add to graph
-	$g->addedge("$time $from", ($time + $dur) . " $to", $dur, { line => $line });
+print STDERR "Loading route data...";
+my @routes = RVP::Schedule::from_file("fahrplandaten/903-mo_fr-ri.huettenheim.csv");
+print STDERR " done.\nBuilding graph from route data...";
+foreach my $route (@routes) {
+	for (my $si = 0; $si <= @{$route->{route}} - 2; $si++) {
+		$stops{$route->{route}->[$si]->{station}} = 1;
+		$g->addedge(
+			"$route->{route}->[$si]->{depart} $route->{route}->[$si]->{station}",
+			"$route->{route}->[$si+1]->{arrive} $route->{route}->[$si+1]->{station}",
+			$route->{route}->[$si+1]->{arrive} - $route->{route}->[$si]->{depart},
+			{ line => "unknown $route->{route}->[-1]->{station} (RS $route->{route}->[0]->{depart})" },
+		);
+	}
 }
-
-# add some static data
-addstop("15:33", "Dinslaken Bf"           => "Dinslaken Neustraße",    2, "903 Mannesmann Tor 2");
-addstop("15:35", "Dinslaken Neustraße"    => "Dinslaken Trabrennbahn", 2, "903 Mannesmann Tor 2");
-addstop("15:37", "Dinslaken Trabrennbahn" => "Dinslaken Pollenkamp",   2, "903 Mannesmann Tor 2");
-addstop("15:39", "Dinslaken Pollenkamp"   => "Dinslaken Bärenstraße",  1, "903 Mannesmann Tor 2");
-addstop("15:40", "Dinslaken Bärenstraße"  => "Watereck",               1, "903 Mannesmann Tor 2");
-addstop("15:41", "Watereck"               => "Vierlinden",             1, "903 Mannesmann Tor 2");
-addstop("15:42", "Vierlinden"             => "Fasanenstraße",          1, "903 Mannesmann Tor 2");
-addstop("15:43", "Fasanenstraße"          => "Walsum Betriebshof",     1, "903 Mannesmann Tor 2");
-addstop("15:44", "Walsum Betriebshof"     => "Walsum Rathaus",         1, "903 Mannesmann Tor 2");
-addstop("15:45", "Walsum Rathaus"         => "Sonnenstraße",           1, "903 Mannesmann Tor 2");
-
-addstop("15:49", "Watereck"               => "Vierlinden",             1, "903 Rheintörchenstraße");
-addstop("15:50", "Vierlinden"             => "Fasanenstraße",          1, "903 Rheintörchenstraße");
-addstop("15:51", "Fasanenstraße"          => "Walsum Betriebshof",     1, "903 Rheintörchenstraße");
-addstop("15:52", "Walsum Betriebshof"     => "Walsum Rathaus",         1, "903 Rheintörchenstraße");
-addstop("15:53", "Walsum Rathaus"         => "Sonnenstraße",           1, "903 Rheintörchenstraße");
-
-addstop("15:57", "Bahnhofstraße"          => "Vierlinden",             3, "SB40 Duisburg Hauptbahnhof");
-addstop("16:00", "Vierlinden"             => "Walsum Rathaus",         4, "SB40 Duisburg Hauptbahnhof");
-addstop("16:04", "Walsum Rathaus"         => "Hoeveler Straße",        1, "SB40 Duisburg Hauptbahnhof");
-addstop("16:05", "Hoeveler Straße"        => "Hauptbahnhof",          13, "SB40 Duisburg Hauptbahnhof");
-# (end static data)
+print STDERR " done.\n";
 
 # extend data with waiting connections.
 # currently this generates extra vertices for every minute.
 # this has the advantage that for all known stations, for the simulation timerange,
 # there is always a way to refer to a station+time combo.
 # unless this turns out to be too slow, it could probably remain that way
+print STDERR "Adding wait nodes...";
+my $stop_index = 0;
 for my $stop (keys(%stops)) {
-	for my $time ( (map { "15:" . $_ } 30..59), (map { "16:" . $_ } 0..30) ) {
-		addstop($time, $stop, $stop, 1, "WAIT");
+	for my $time ((15*60+30)..(16*60+30)) {
+		$g->addedge("$time $stop", ($time + 1) . " $stop", 1, { line => "WAIT" });
 	}
 }
+print STDERR " done.\n";
+print STDERR "Graph has " . $g->countvertices() . " vertices and " . $g->countedges() . " edges now.\n";
 
 sub path_length {
 	my ($graph, $path) = @_;
