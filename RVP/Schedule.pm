@@ -36,13 +36,13 @@ sub from_lines {
 	while (grep { exists($_->[$ri]) } values(%times_by_station)) {
 		my @stations_def = grep { ($times_by_station{$_}->[$ri] // "") ne "" } @stations;
 		my $prev_depart;
-		my (undef, $first_depart) = parse_time($times_by_station{$stations_def[0]}->[$ri]);
+		my (undef, $first_depart) = _parse_time($times_by_station{$stations_def[0]}->[$ri]);
 		my $route = { route => [], stations => {} };
 		@{$route->{route}} = map {
 			my $station = $_;
 
 			# calculate arrive/depart times
-			my ($arrive, $depart) = parse_time($times_by_station{$station}->[$ri], $prev_depart);
+			my ($arrive, $depart) = _parse_time($times_by_station{$station}->[$ri], $prev_depart);
 			$prev_depart = $depart;
 
 			# track offset to first station
