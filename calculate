@@ -4,6 +4,7 @@ use warnings;
 
 use utf8;
 binmode(STDOUT, ":utf8");
+use Encode;
 
 use Data::Dumper;
 use List::Util qw(sum);
@@ -14,7 +15,10 @@ $| = 1;
 my $calc = RVP::Calculate->new();
 
 print STDERR "Loading route data...";
-my @routes = RVP::Schedule::from_file("fahrplandaten/903-mo_fr-ri.huettenheim.csv");
+my @routes = (
+	RVP::Schedule::from_file("fahrplandaten/903-mo_fr-ri.huettenheim.csv"),
+	RVP::Schedule::from_file("fahrplandaten/sb40-mo_fr-ri.duisburg.csv"),
+);
 print STDERR " done.\nBuilding graph from route data...";
 $calc->add_route_data(@routes);
 print STDERR " done.\n";
@@ -32,7 +36,7 @@ sub path_length {
 	return sum map { $_->[2] } @{$path};
 }
 
-my @connections = $calc->calculate($ARGV[0], $ARGV[1], 1);
+my @connections = $calc->calculate(decode_utf8($ARGV[0]), decode_utf8($ARGV[1]), 1);
 foreach my $connection (@connections) {
 	my @events = RVP::Calculate::connection_as_events(@{$connection});
 	foreach my $event (@events) {

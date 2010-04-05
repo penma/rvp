@@ -95,7 +95,7 @@ sub connection_as_events {
 		line    => $stuff[0]->[3]->{line},
 	});
 
-	for (my $i = 1; $i <= @stuff - 2; $i++) {
+	for (my $i = 1; $i <= @stuff - 1; $i++) {
 		if ($stuff[$i]->[3]->{line} ne $stuff[$i-1]->[3]->{line}) {
 			push(@ev, {
 				event    => "arrive",
