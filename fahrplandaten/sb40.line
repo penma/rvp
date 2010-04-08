@@ -1,4 +1,4 @@
-line: SB40
+name: SB40
 physical_distances_file: ../data/sb40
 schedules:
      - name: SB40 Richtung Duisburg
