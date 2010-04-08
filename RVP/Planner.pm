@@ -35,3 +35,30 @@ sub plan {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+RVP::Planner - control the planning process
+
+=head1 SYNOPSIS
+
+ my $planner = RVP::Planner->new();
+ $planner->add_lines($l1, $l2, ...); # RVP::Line objects
+ my $plan = $planner->plan($station_from => $station_to);
+
+=head1 DESCRIPTION
+
+This class implements the planner component of RVP.
+
+The planner is responsible for generating physical routes that can be
+simulated thoroughly by the simulator.
+
+=head1 LIMITATIONS
+
+Currently it is not known or defined if or how a planner can be executed to
+plan multiple trips during its lifetime.
+
+=cut
+
