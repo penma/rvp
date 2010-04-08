@@ -5,6 +5,7 @@ use warnings;
 use 5.010;
 
 use Data::Dumper;
+use Storable qw(dclone);
 use List::Util qw(min);
 
 use constant {
@@ -109,6 +110,32 @@ sub dijkstra {
 	} else {
 		goto &dijkstra_continue;
 	}
+}
+
+sub recursive_dijkstra {
+	my ($self, $from, $to, $level, $del_to) = @_;
+	my @d = ([ $self->dijkstra($from, $to, $del_to) ]);
+
+	if (!defined($d[0]->[0])) {
+		return ();
+	}
+
+	if ($level > 0) {
+		foreach (0..(@{$d[0]}-1)) {
+			# from copies of the graph, remove one edge from the result path,
+			# and continue finding paths on that tree.
+			my $g2 = dclone($self);
+			$g2->deledge($d[0]->[$_]->[0], $d[0]->[$_]->[1]);
+			my @new = $g2->recursive_dijkstra($from, $to, $level - 1, $d[0]->[$_]->[1]);
+
+			# add all new paths, unless they are already present in the result set
+			foreach my $n (@new) {
+				push(@d, $n) unless (grep { $n ~~ $_ } @d);
+			}
+		}
+	}
+
+	@d;
 }
 
 sub addedge {
