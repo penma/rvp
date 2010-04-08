@@ -1,0 +1,7 @@
+line: 903
+physical_distances_file: ../data/903
+schedules:
+     - name: 903 Richtung Dinslaken
+       file: 903-mo_fr-ri.dinslaken.csv
+     - name: 903 Richtung Hüttenheim
+       file: 903-mo_fr-ri.huettenheim.csv

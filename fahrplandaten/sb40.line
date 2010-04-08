@@ -1,0 +1,7 @@
+line: SB40
+physical_distances_file: ../data/sb40
+schedules:
+     - name: SB40 Richtung Duisburg
+       file: sb40-mo_fr-ri.duisburg.csv
+     - name: SB40 Richtung Walsum
+       file: sb40-mo_fr-ri.walsum.csv
